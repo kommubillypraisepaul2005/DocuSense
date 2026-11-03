@@ -32,7 +32,7 @@ def _money(value: Any) -> Decimal | None:
         return None
     raw = str(value).strip()
     negative = raw.startswith("(") and raw.endswith(")")
-    cleaned = re.sub(r"[^0-9,.\\-]", "", raw).replace(",", "")
+    cleaned = re.sub(r"[^0-9,.-]", "", raw).replace(",", "")
     if not cleaned or cleaned in {"-", ".", "-."}:
         return None
     try:
