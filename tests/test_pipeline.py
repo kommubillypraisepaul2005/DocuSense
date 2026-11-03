@@ -4,7 +4,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from app.baselines import _adjustment_rows, _line_items
+from app.baselines import _adjustment_rows, _line_items, extract_rules
 from app.extractors import extract_file
 from app.models import _normalize_extraction, _response_json_schema
 from app.processor import _ocr_conflicts
@@ -45,6 +45,22 @@ class ExtractorTests(unittest.TestCase):
             "2 Organic eggs 0.50 1.00\nfree range, locally sourced",
             "3 Coffee 2.00 6.00",
         ])
+
+    def test_receipt_rules_emit_separate_adjustment_table(self):
+        extraction = extract_rules(
+            "Receipt # R-100\\nSubtotal 20.00\\nCoffee 2 5.00 10.00\\n"
+            "Discount: 1.00\\nService Charge 2.00\\nFood Tax 1.60\\nTotal 22.60"
+        )
+        tables = {table["name"]: table for table in extraction["tables"]}
+        self.assertIn("line_items", tables)
+        self.assertIn("taxes", tables)
+        self.assertIn("adjustments", tables)
+        self.assertEqual(tables["adjustments"]["headers"], ["adjustment_type", "description", "amount"])
+        self.assertEqual(tables["adjustments"]["rows"], [
+            ["discount", "Discount", "1.00"],
+            ["fee", "Service Charge", "2.00"],
+        ])
+        self.assertEqual(tables["adjustments"]["row_evidence"], ["Discount: 1.00", "Service Charge 2.00"])
 
     def test_adjustments_keep_discounts_fees_and_returns_separate(self):
         headers, rows, evidence = _adjustment_rows([
