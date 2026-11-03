@@ -490,6 +490,7 @@ def extract_rules(text: str, schema: dict | None = None) -> dict:
                     "other_text": {"type": "string", "required": False},
                     "line_items": {"type": "table", "required": False, "columns": ["description", "quantity", "unit_price", "amount"]},
                     "taxes": {"type": "table", "required": False, "columns": ["tax_name", "rate", "amount"]},
+                    "adjustments": {"type": "table", "required": False, "columns": ["adjustment_type", "description", "amount"]},
                 },
             }
             return extract_rules(text, receipt_schema)
