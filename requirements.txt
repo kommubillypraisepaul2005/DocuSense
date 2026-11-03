@@ -1,0 +1,16 @@
+fastapi>=0.115
+uvicorn[standard]>=0.34
+python-multipart>=0.0.20
+httpx>=0.28
+pydantic>=2.10
+pymupdf>=1.25
+pillow>=11.0
+pytesseract>=0.3.13
+python-docx>=1.1
+openpyxl>=3.1
+python-pptx>=1.0
+beautifulsoup4>=4.12
+cryptography>=44.0
+odfpy>=1.4.1
+striprtf>=0.0.26
+python-dotenv>=1.0

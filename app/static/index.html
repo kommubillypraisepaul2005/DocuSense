@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f5f7f8">
+  <title>Document Lab</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/review.css">
+</head>
+<body>
+  <main class="page-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Document Lab home"><span class="brand-icon">D</span><span>Document Lab</span></a>
+      <span id="service-status" class="local-pill" role="status" aria-live="polite" title="Checking the local document service"><span class="status-dot"></span><span id="service-status-text">Checking local service…</span></span>
+    </header>
+
+    <section class="intro">
+      <p class="eyebrow">OPEN DOCUMENT INTELLIGENCE</p>
+      <h1>Test a document.<br><span>See what its text contains.</span></h1>
+      <p class="intro-copy">Upload a PDF, photo, spreadsheet, or office document. Review the extracted fields, evidence, and validation warnings here.</p>
+    </section>
+
+    <section class="workspace-grid">
+      <section class="panel upload-panel">
+        <div class="section-title"><div><p class="eyebrow">NEW EXTRACTION</p><h2>Upload a document</h2></div><span class="step-number">01</span></div>
+        <form id="upload-form">
+          <label id="dropzone" class="dropzone" for="file">
+            <span class="upload-icon" aria-hidden="true">↑</span>
+            <strong id="file-title">Drop a file here or browse</strong>
+            <span id="file-subtitle">PDF, images, DOCX, XLSX, PPTX, CSV, TXT and more · up to 30 MB</span>
+            <input id="file" name="file" type="file" required accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp,.doc,.xls,.ppt,.docx,.xlsx,.xlsm,.pptx,.odt,.ods,.odp,.csv,.txt,.md,.json,.log,.xml,.html,.htm,.rtf">
+          </label>
+
+          <div class="form-grid">
+            <label class="form-label" for="profile">Document fields
+              <select id="profile">
+                <option value="general" selected>General document</option>
+                <option value="invoice">Invoice or receipt</option>
+                <option value="marksheet">Marksheet</option>
+                <option value="custom">Custom schema</option>
+              </select>
+            </label>
+            <label class="form-label" for="mode">Extraction method
+              <select id="mode">
+                <option value="rules" selected>OCR + local structuring (no Ollama)</option>
+                <option value="auto">Automatic (uses Ollama when available)</option>
+                <option value="text">OCR + local text model</option>
+                <option value="vision">Local vision model + OCR</option>
+                <option value="vision_zero_shot">Local vision model only</option>
+              </select>
+            </label>
+          </div>
+          <p class="profile-note">Documents can have different fields and layouts. Choose a profile when it fits, or leave General if you are unsure. Review the OCR text and correct each result before using it.</p>
+
+          <details id="custom-schema" class="schema-box" hidden>
+            <summary>Custom extraction schema</summary>
+            <textarea id="schema-json" rows="7" spellcheck="false" placeholder='{"document_type":"invoice","fields":{"invoice_number":"string","vendor":"string","date":"date","total":"number"}}'></textarea>
+          </details>
+
+          <label class="form-label api-key-label" for="api-key">API key <span>Leave blank unless you configured one in .env</span>
+            <input id="api-key" type="password" autocomplete="off" placeholder="Local development can leave this blank">
+          </label>
+          <button id="process-button" class="primary-button" type="submit"><span>Run extraction</span><span aria-hidden="true">→</span></button>
+        </form>
+        <div id="status" class="status-line" role="status" aria-live="polite"></div>
+      </section>
+
+      <aside class="panel info-panel">
+        <div class="section-title"><div><p class="eyebrow">HOW IT WORKS</p><h2>Private by default</h2></div><span class="lock-icon" aria-hidden="true">⌑</span></div>
+        <ol class="steps-list">
+          <li><span>1</span><div><strong>Choose your file</strong><p>Documents are processed by this local app.</p></div></li>
+          <li><span>2</span><div><strong>Review the extraction</strong><p>Check field evidence and any warnings before using the result.</p></div></li>
+          <li><span>3</span><div><strong>Find the saved JSON</strong><p>Each completed result is written to <code>data/results</code>.</p></div></li>
+        </ol>
+        <div class="notice"><strong>Works without Ollama</strong><p>OCR + local structuring keeps every recognized line, extracts labeled values, and applies receipt or marksheet rules. Use a custom schema for your own field names. Text and vision model modes require Ollama.</p></div>
+      </aside>
+    </section>
+
+    <section id="result" class="panel result-panel" hidden>
+      <div class="result-heading"><div><p class="eyebrow">EXTRACTION RESULT</p><h2 id="result-title">Result</h2><p id="result-subtitle" class="muted"></p></div><div class="result-actions"><div id="result-status" class="result-badge"></div><button id="edit-result" type="button" class="secondary-button">Review and correct</button></div></div>
+      <div id="saved-location" class="saved-location"></div>
+      <div id="result-fields" class="fields-grid"></div>
+      <div id="result-tables"></div>
+      <details id="ocr-readout" class="raw-json" hidden><summary>OCR text read from the document</summary><pre id="ocr-output"></pre></details>
+      <section id="review-reasons" class="review-reasons" hidden><h3>Needs a closer look</h3><ul id="review-list"></ul></section>
+      <section id="correction-editor" class="correction-editor" hidden>
+        <div class="editor-heading"><div><h3>Review and correct</h3><p>Fix the values or table rows, then save your corrections with a review note.</p></div><button id="cancel-edit" type="button" class="secondary-button">Cancel</button></div>
+        <div id="scalar-editor" class="fields-grid"></div>
+        <div id="table-editor"></div>
+        <label class="form-label" for="review-comment">Review note <span>Optional</span><textarea id="review-comment" rows="3" maxlength="2000" placeholder="What did you correct or verify?"></textarea></label>
+        <button id="save-corrections" type="button" class="primary-button"><span>Save corrections</span><span aria-hidden="true">✓</span></button>
+      </section>
+      <details class="raw-json"><summary>Full extraction JSON</summary><pre id="output"></pre></details>
+    </section>
+
+    <section class="panel history-panel">
+      <div class="section-title"><div><p class="eyebrow">ON THIS COMPUTER</p><h2>Recent saved results</h2></div><button id="load-results" type="button" class="secondary-button">Refresh</button></div>
+      <div id="saved-results" class="history-list"><p class="muted">Loading saved results…</p></div>
+    </section>
+
+    <footer><span>Document Lab</span><span>Results are saved locally as JSON.</span></footer>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
