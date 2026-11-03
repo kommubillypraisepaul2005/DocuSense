@@ -55,10 +55,10 @@ class ExtractorTests(unittest.TestCase):
         self.assertIn("line_items", tables)
         self.assertIn("taxes", tables)
         self.assertIn("adjustments", tables)
-        self.assertEqual(tables["adjustments"]["headers"], ["adjustment_type", "description", "amount"])
+        self.assertEqual(tables["adjustments"]["headers"], ["adjustment_type", "description", "quantity", "unit_price", "amount"])
         self.assertEqual(tables["adjustments"]["rows"], [
-            ["discount", "Discount", "1.00"],
-            ["fee", "Service Charge", "2.00"],
+            ["discount", "Discount", "", "", "1.00"],
+            ["fee", "Service Charge", "", "", "2.00"],
         ])
         self.assertEqual(tables["adjustments"]["row_evidence"], ["Discount: 1.00", "Service Charge 2.00"])
 
@@ -72,18 +72,35 @@ class ExtractorTests(unittest.TestCase):
             "Coffee 2 3.00 6.00",
             "Total 7.05",
         ])
-        self.assertEqual(headers, ["adjustment_type", "description", "amount"])
+        self.assertEqual(headers, ["adjustment_type", "description", "quantity", "unit_price", "amount"])
         self.assertEqual(rows, [
-            ["discount", "Discount", "5.00"],
-            ["fee", "Service Charge", "2.50"],
-            ["return", "Refund", "-3.00"],
-            ["return", "Return", "-4.25"],
+            ["discount", "Discount", "", "", "5.00"],
+            ["fee", "Service Charge", "", "", "2.50"],
+            ["return", "Refund", "", "", "-3.00"],
+            ["return", "Return", "", "", "-4.25"],
         ])
         self.assertEqual(evidence, [
             "Discount: 5.00",
             "Service Charge 2.50",
             "Refund -3.00",
             "Return (4.25)",
+        ])
+
+    def test_itemized_returns_require_explicit_label_and_negative_amount(self):
+        headers, rows, evidence = _adjustment_rows([
+            "1 Returned Coffee 3.00 -3.00",
+            "Returned Tea 2 x 2.50 (5.00)",
+            "1 Coffee 3.00 -3.00",
+            "1 Returned Juice 4.00 4.00",
+        ])
+        self.assertEqual(headers, ["adjustment_type", "description", "quantity", "unit_price", "amount"])
+        self.assertEqual(rows, [
+            ["return", "Coffee", "1", "3.00", "-3.00"],
+            ["return", "Tea", "2", "2.50", "-5.00"],
+        ])
+        self.assertEqual(evidence, [
+            "1 Returned Coffee 3.00 -3.00",
+            "Returned Tea 2 x 2.50 (5.00)",
         ])
 
     def test_line_item_exclusions_use_word_boundaries(self):
