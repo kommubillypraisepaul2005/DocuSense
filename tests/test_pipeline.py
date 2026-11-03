@@ -42,7 +42,7 @@ class ExtractorTests(unittest.TestCase):
             ["Coffee", "3", "2.00", "6.00"],
         ])
         self.assertEqual(evidence, [
-            "2 Organic eggs 0.50 1.00\\nfree range, locally sourced",
+            "2 Organic eggs 0.50 1.00\nfree range, locally sourced",
             "3 Coffee 2.00 6.00",
         ])
 
