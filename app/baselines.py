@@ -181,10 +181,35 @@ def _tax_rows(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]]:
 
 
 def _adjustment_rows(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]]:
-    """Classify explicitly labelled invoice adjustments without mixing them into purchased items."""
-    headers = ["adjustment_type", "description", "amount"]
+    """Classify labelled summary adjustments and explicitly itemized returns."""
+    headers = ["adjustment_type", "description", "quantity", "unit_price", "amount"]
     rows: list[list[str]] = []
     evidence: list[str] = []
+    money = r"(?:[$₹€£]\s*)?\d[\d,]*(?:\.\d{1,2})?"
+    negative_amount = r"(?:-\s*(?:" + money + r")|\(\s*" + money + r"\s*\))"
+    return_label = r"(?:returned|return|refunded|refund|credited|credit)\b"
+
+    def clean_amount(value: str) -> str:
+        amount = re.sub(r"\s+", "", value).replace(",", "").strip("$₹€£")
+        if amount.startswith("(") and amount.endswith(")"):
+            return "-" + amount[1:-1].lstrip("-")
+        return amount
+
+    # Itemized return rows require both an explicit return/refund label and
+    # a negative or parenthesized printed amount. A negative amount alone is
+    # not enough to infer that a purchased item was returned.
+    itemized_patterns = (
+        re.compile(
+            rf"^(?P<qty>\d{{1,3}})[.\s:-]+(?P<description>{return_label}.+?)\s+"
+            rf"(?P<unit>{money})\s+(?P<amount>{negative_amount})$",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            rf"^(?P<description>{return_label}.+?)\s+(?P<qty>\d{{1,3}})\s*(?:x|@)?\s+"
+            rf"(?P<unit>{money})\s+(?P<amount>{negative_amount})$",
+            re.IGNORECASE,
+        ),
+    )
     labels = (
         (r"discount|coupon|promotion|promo|rebate", "discount"),
         (r"refund|return|credit", "return"),
@@ -198,6 +223,21 @@ def _adjustment_rows(lines: list[str]) -> tuple[list[str], list[list[str]], list
         raw = line.strip()
         if not raw:
             continue
+
+        itemized = next((pattern.match(raw) for pattern in itemized_patterns if pattern.match(raw)), None)
+        if itemized:
+            description = re.sub(
+                rf"^{return_label}\s*", "", itemized.group("description"), flags=re.IGNORECASE
+            ).strip(" :.-")
+            if not description:
+                continue
+            rows.append([
+                "return", description, itemized.group("qty"),
+                clean_amount(itemized.group("unit")), clean_amount(itemized.group("amount")),
+            ])
+            evidence.append(raw)
+            continue
+
         label_match = None
         adjustment_type = ""
         for label_pattern, kind in labels:
@@ -211,14 +251,11 @@ def _adjustment_rows(lines: list[str]) -> tuple[list[str], list[list[str]], list
         amount_match = amount_pattern.search(raw)
         if not amount_match or re.search(r"%\s*$", raw):
             continue
-        printed_amount = amount_match.group("amount")
-        amount = re.sub(r"\s+", "", printed_amount).replace(",", "").strip("$₹€£")
-        if amount.startswith("(") and amount.endswith(")"):
-            amount = "-" + amount[1:-1].lstrip("-")
+        amount = clean_amount(amount_match.group("amount"))
         description = raw[:amount_match.start()].strip(" :.-")
         if not description:
             description = label_match.group("label")
-        rows.append([adjustment_type, description, amount])
+        rows.append([adjustment_type, description, "", "", amount])
         evidence.append(raw)
     return headers, rows, evidence
 
@@ -490,7 +527,7 @@ def extract_rules(text: str, schema: dict | None = None) -> dict:
                     "other_text": {"type": "string", "required": False},
                     "line_items": {"type": "table", "required": False, "columns": ["description", "quantity", "unit_price", "amount"]},
                     "taxes": {"type": "table", "required": False, "columns": ["tax_name", "rate", "amount"]},
-                    "adjustments": {"type": "table", "required": False, "columns": ["adjustment_type", "description", "amount"]},
+                    "adjustments": {"type": "table", "required": False, "columns": ["adjustment_type", "description", "quantity", "unit_price", "amount"]},
                 },
             }
             return extract_rules(text, receipt_schema)
