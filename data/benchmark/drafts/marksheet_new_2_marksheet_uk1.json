@@ -1,0 +1,91 @@
+{
+  "document_id": "marksheet_new_2",
+  "source_file": "Sample_docs/marksheet uk1.webp",
+  "annotation_status": "draft_needs_human_review",
+  "is_gold_label": false,
+  "split": null,
+  "schema": {
+    "document_type": "marksheet",
+    "fields": {
+      "student_name": {
+        "type": "string",
+        "required": false
+      },
+      "roll_number": {
+        "type": "string",
+        "required": false
+      },
+      "registration_number": {
+        "type": "string",
+        "required": false
+      },
+      "date_of_birth": {
+        "type": "string",
+        "required": false
+      },
+      "father_name": {
+        "type": "string",
+        "required": false
+      },
+      "mother_name": {
+        "type": "string",
+        "required": false
+      },
+      "school_name": {
+        "type": "string",
+        "required": false
+      },
+      "board": {
+        "type": "string",
+        "required": false
+      },
+      "examination": {
+        "type": "string",
+        "required": false
+      },
+      "exam_year": {
+        "type": "string",
+        "required": false
+      },
+      "result": {
+        "type": "string",
+        "required": false
+      },
+      "date_of_issue": {
+        "type": "string",
+        "required": false
+      },
+      "subjects_and_marks": {
+        "type": "table",
+        "required": true,
+        "columns": [
+          "subject_code",
+          "subject",
+          "theory_marks",
+          "practical_marks",
+          "total_marks",
+          "total_in_words",
+          "grade"
+        ]
+      }
+    }
+  },
+  "candidate_fields": {
+    "student_name": {
+      "value": "THAT",
+      "evidence": "THIS IS TO CERTIFY THAT ~SOBA KAMAR",
+      "page": 0,
+      "bbox": []
+    }
+  },
+  "candidate_tables": [],
+  "ocr_text_for_comparison": "[Page 1]\n21250142\nCOUNCIL OF HIGHER SECONDARY EDUCATION, ODISHA\nBHUBANESWAR\nMEMORANDUM OF MARKS\nHIGHER SECONDARY EXAMINATION\nTHIS IS TO CERTIFY THAT ~SOBA KAMAR\nSON / DAUGHTER OF SMT. SANMATI KAMAR\n&SRI. LOKANATH KAMAR\nOF GOVT. (SSD) H.S.SCHOOL, KARCHAMAL, HAS PASSED\nTHE ANNUAL EXAMINATION 2021 AND IS PLACED IN SECOND DIVISION\nTHE MARKS AWARDED TO THE CANDIDATE IN DIFFERENT SUBJECTS ARE AS UNDER :\nROLL NO, REGN.NO! STREAM\n328HC059 HC28S19063 SCIENCE(REGULAR)\nSUBJECTS 115० MARKS AWARDED\nENGLISH 100 | 48 ZERO FOUR EIGHT\nMIL ODIA\\ 400 | §3 ZERO FIVE THREE\nPHYSICS. 70 40 ZERO FOUR ZERO\nPHYSICS (PRACTICAL) 30 28 ZERO TWO Six\nCHEMISTRY 70 28 ZERO TWO EIGHT\nCHEMISTRY (PRACTICAL) 30 24 ZERO TWO FOUR\nBloLocy\nBOTANY 35 44 ZERO ONE FOUR\nBOTANY (PRACTICAL) 15 40 ZERO ONE ZERO\nZOOLOGY 35 44 ZERO ONE FOUR\nZOOLOGY (PRACTICAL) 15 41. ZERO. ONE ONE\nMATHEMATICS 100 | 71 ZERO SEVEN ONE\nENVIRONMENTAL EDUCATION : B\nYOGA : B\nBASIC COMPUTER EDUCATION : C\nGRAND TOTAL IN FIGURES \"339\nIN WORDS THREE THREE NINE a\nPASS MARKS DIVISION\nee ope INSTIPATIGN CONTROLLER OF EXAMINATIONS\nDATE OF PUBLICATION: — S1~JUL-2024 (५, see oy Highor Secondary Sehoc!\nSON/ DAUGHTER OF SMT. SANMATI KAMAR 1\nTHE ANNUAL EXAMINATION 2021 AND IS PLACED IN SECOND DIISION | |\nMIL ODIA 100 53 ZERO FIVE THREE\nPHYSICS 70 40 ZERO FOUR Z&RO 1\nPHYSICS (PRACTICAL) 30 26 ZERO TWO 912 |\nBIOLOGY\nBOTANY 35 14 ZERO ONE FOUR j\nBOTANY (PRACTICAL) 15 10 ZERO ONE ZERO |\nZOOLOGY 35 14 ZERO ONE FOUR\nZOOLOGY (PRACTICAL) 15 101 ZERO ONE ONE |\nMATHEMATICS 100 ral ZERO SEVEN ONE |\nENVIRONMENTAL EDUCATION : 8\n+ 1B\nYOGA :\nBASIC COMPUTER EDUCATION : 6 |\nGRAND TOTAL IN FIGURES \"939\nTheory 30% First 6 \\\nPractical 40% second 0% PS auhenh Kroner £\n‘Aggregate 35% Third 35% Rae i\nजहा CONTROLLER OF EXAMINATIONS\nDATE OF PUBLICATION: — S1-JUL-2021 ५, isepyHighor Secondary Schoo!\nA seri @anag ca | |\n_|seraino( 2sgine | ps 21260142\nछू SE Sen\n= ead ASN KARZ |\na HIGHER SECONDARY EXAMINATION\n7\n<} & srt LOKANATH KAMAR |\nq\n\\ Nod Neste cata न बम 2 1807-44 ae aaa ee\nSUBJECTS wee, | MARKS AWARDED |\nee\n. MIL ODIA 100 63 ZERO FIVE THREE\nN CHEMISTRY (PRACTICAL) 30 24 ZERO TWO FOUR\n\\ BIOLORY, |\n< ZOOLOGY (PRACTICAL) 15 44 ZERO. ONE ONE |\nS MATHEMATICS 100 74 ZERO SEVEN ONE |\nS\nS ENVIRONMENTAL EDUCATION : B\nSy YOGA ne\n= BASIC COMPUTER EDUCATION : © |\nS GRAND TOTAL IN FIGURES \"$38 |\nIN WORDS: THREE THREE NINE ah |\n= Theory 30% First 60% है! |\n| Practical 40% marae Ciel yh H ah 4\n=] Aggregate 95% Third = 35% canonical तहत |\n= INSTIBHTIGN CONTROLLER OF EXAMINATIONS:\n|| DATEOFPUBLICATION: — S1-JUL-2021 4.4 gery ighor Secondary Sthoo! |\naH\nil\nae\n८2...\nSS\nAN\n0)\na\nRUN\nSerial No. [250 Aue 7\naaa\nRSECOY,\niy\n$5\ne.\nar ४\nSAS\nNy\nie\nfe\nTHIS 1S TO CERTIFY THAT SOBA KAMAR\n&SRI.\nLOKANATH KAMAR\nOF\nHAS PASSED\nGOVT. (SSD) H.S.SCHOOL, KARCHAMAL,\nTHE ANNUAL EXAMINATION 2021\nAND IS PLACED IN\nSECOND\nDIVISION\nROLL NO.\nREGN. NO.\nSTREAM\n328HC059\nHC28S19063\nSCIENCE(REGULAR)\nSUBJECTS\nMARKS:\nMARKS AWARDED\npl\n100\n48\nZERO\nFOUR\nEIGHT\nENGLISH\n53\nFIVE\nTHREE\nMIL 09016\nPHYSICS\n70\n40\nPHYSICS (PRACTICAL)\n30\n26\nTwo\nSIX\nCHEMISTRY\n28\nCHEMISTRY (PRACTICAL)\n24\nBIOLOK\nONE\nBOTANY\n35\n14\nBOTANY (PRACTICAL)\n15\n10\nZOOLOG'\nZOOLOGY (PRACTICAL)\n11\nMATHEMATICS\nn\nSEVEN\nENVIRONMENTAL EDUCATION\n8\nGRAND TOTAL\nIN FIGURES\n339\nIN WORDS:\nTHREE THREE NINE\ni\nPASS MARKS\nTheory\nFirst\n6\nPractical\n50%\nThird\n22000 00 Aw,\n‘Aggrogate\nHEAD OF THI\nINSTIBHTAHY\nDATE OF PUBLICATION\nS4-JUL-2021 ५५ (gp) Highor Secondary Schoo!\nRUG\nUU\n000\n\\X\nRAN",
+  "warnings": [
+    "OCR-generated candidates only; verify every scalar and table cell against the scan.",
+    "Do not use this draft as held-out evaluation until labels are verified and the split is frozen.",
+    "Bounding-box labels have not been annotated.",
+    "Superseded by a visual review draft. Do not use as a gold annotation."
+  ],
+  "draft_status": "superseded_ocr_only_candidate",
+  "superseded_by": "marksheet_new_2_visual_review.json"
+}

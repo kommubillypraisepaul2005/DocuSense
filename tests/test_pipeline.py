@@ -1,0 +1,181 @@
+import io
+import asyncio
+import json
+import unittest
+from unittest.mock import patch
+
+from app.extractors import extract_file
+from app.models import _normalize_extraction, _response_json_schema
+from app.processor import _ocr_conflicts
+from app.validation import validate_extraction
+
+
+class ExtractorTests(unittest.TestCase):
+    def test_text_and_html(self):
+        plain = extract_file("note.txt", b"Invoice number: ABC-123\nTotal: $42.50", ocr_enabled=False)
+        self.assertIn("ABC-123", plain["text"])
+        html = extract_file("page.html", b"<html><body><h1>Invoice</h1><p>Total 42</p></body></html>", ocr_enabled=False)
+        self.assertIn("Invoice", html["text"])
+        self.assertNotIn("<h1>", html["text"])
+
+    def test_json_and_csv_tables(self):
+        obj = extract_file("data.json", b'{"a": 1}', ocr_enabled=False)
+        self.assertIn('"a": 1', obj["text"])
+        csv = extract_file("data.csv", b"name,total\nA,12.50\n", ocr_enabled=False)
+        self.assertEqual(csv["segments"][0]["tables"][0]["rows"], [["A", "12.50"]])
+
+    def test_generated_pdf(self):
+        import fitz
+        doc = fitz.open()
+        page = doc.new_page()
+        page.insert_text((72, 72), "Invoice number: PDF-123")
+        raw = doc.tobytes()
+        doc.close()
+        result = extract_file("sample.pdf", raw, ocr_enabled=False)
+        self.assertIn("PDF-123", result["text"])
+        self.assertTrue(result["segments"][0]["regions"])
+
+    def test_generated_office_files(self):
+        from docx import Document
+        from openpyxl import Workbook
+        from pptx import Presentation
+        from pptx.util import Inches
+
+        doc = Document()
+        doc.add_paragraph("DOCX body")
+        table = doc.add_table(rows=2, cols=2)
+        table.cell(0, 0).text = "Key"
+        table.cell(0, 1).text = "Value"
+        table.cell(1, 0).text = "A"
+        table.cell(1, 1).text = "B"
+        stream = io.BytesIO(); doc.save(stream)
+        parsed_docx = extract_file("sample.docx", stream.getvalue(), ocr_enabled=False)
+        self.assertIn("DOCX body", parsed_docx["text"])
+        self.assertEqual(parsed_docx["segments"][0]["tables"][0]["rows"], [["A", "B"]])
+
+        workbook = Workbook(); sheet = workbook.active; sheet.append(["Item", "Price"]); sheet.append(["Pen", 2.5]); sheet["C2"] = "=B2*2"
+        stream = io.BytesIO(); workbook.save(stream)
+        parsed_xlsx = extract_file("sample.xlsx", stream.getvalue(), ocr_enabled=False)
+        self.assertIn("Pen", parsed_xlsx["text"])
+        self.assertIn("=B2*2", parsed_xlsx["text"])
+
+        deck = Presentation(); slide = deck.slides.add_slide(deck.slide_layouts[6]); box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(4), Inches(1)); box.text = "PPTX body"
+        stream = io.BytesIO(); deck.save(stream)
+        parsed_pptx = extract_file("sample.pptx", stream.getvalue(), ocr_enabled=False)
+        self.assertIn("PPTX body", parsed_pptx["text"])
+
+
+class ValidationTests(unittest.TestCase):
+    def test_quote_grounding_and_invoice_arithmetic(self):
+        segments = [{"index": 1, "text": "Subtotal: 40.00 Tax: 4.00 Total: 44.00", "regions": []}]
+        extraction = {"fields": {
+            "subtotal": {"value": "40.00", "evidence": "Subtotal: 40.00"},
+            "tax": {"value": "4.00", "evidence": "Tax: 4.00"},
+            "total": {"value": "44.00", "evidence": "Total: 44.00"},
+        }}
+        result = validate_extraction(extraction, segments)
+        self.assertFalse(result["review_required"])
+        self.assertTrue(all(item["grounded"] for item in result["grounded_fields"].values()))
+        self.assertTrue(result["checks"][0]["passed"])
+
+    def test_unmatched_field_routes_to_review(self):
+        result = validate_extraction({"fields": {"total": {"value": "99", "evidence": "Total: 99"}}}, [{"index": 1, "text": "Total: 10", "regions": []}])
+        self.assertTrue(result["review_required"])
+        self.assertFalse(result["grounded_fields"]["total"]["grounded"])
+
+    def test_ocr_variants_keep_conflicts_for_review(self):
+        segments = [{
+            "index": 2,
+            "text": "Roll Number: 123456",
+            "ocr_alternates": [{"method": "psm6", "text": "Roll Number: 123458"}],
+        }]
+        conflicts = _ocr_conflicts(segments)
+        self.assertEqual(len(conflicts), 1)
+        self.assertEqual(conflicts[0]["page"], 2)
+        self.assertEqual({item["value"] for item in conflicts[0]["readings"]}, {"123456", "123458"})
+
+
+class ModelNormalizationTests(unittest.TestCase):
+    def test_generated_response_schema_respects_custom_schema(self):
+        requested = _response_json_schema({"fields": {
+            "roll_number": {"type": "string"},
+            "subjects": {"type": "table", "columns": ["subject", "marks"]},
+        }})
+        fields = requested["properties"]["fields"]
+        self.assertEqual(set(fields["properties"]), {"roll_number"})
+        self.assertFalse(fields["additionalProperties"])
+        self.assertEqual(requested["required"], ["document_type", "summary", "fields", "tables", "checks", "uncertainties"])
+        self.assertEqual(requested["properties"]["tables"]["items"]["properties"]["name"]["enum"], ["subjects"])
+
+    def test_schema_alias_null_status_and_table_merge_preserve_rows(self):
+        schema = {"fields": {
+            "student_name": {"type": "string"},
+            "subjects_and_marks": {"type": "table", "columns": ["subject", "marks"]},
+        }}
+        extraction = _normalize_extraction({
+            "fields": {"student_name": {"value": None, "evidence": None}},
+            "tables": [
+                {"name": "marks", "headers": ["subject", "marks"], "rows": [["Math", "80"]], "row_evidence": ["Math 80"], "page": 1},
+                {"name": "marks", "headers": ["subject", "marks"], "rows": [["Math", "80"], ["English", "75"]], "row_evidence": ["Math 80", "English 75"], "page": 1},
+            ],
+        }, schema)
+        self.assertEqual(extraction["fields"]["student_name"]["value"], "")
+        self.assertEqual(extraction["fields"]["student_name"]["extraction_status"], "missing")
+        table = extraction["tables"][0]
+        self.assertEqual(table["name"], "subjects_and_marks")
+        self.assertEqual(table["rows"], [["Math", "80"], ["English", "75"]])
+        self.assertEqual(table["row_evidence"], ["Math 80", "English 75"])
+
+    def test_conflicting_table_rows_are_retained_and_marked(self):
+        extraction = _normalize_extraction({"tables": [
+            {"name": "items", "headers": ["description", "amount"], "rows": [["Tea", "10"]], "row_evidence": ["Tea 10"], "page": 1},
+            {"name": "items", "headers": ["description", "amount"], "rows": [["Tea", "12"]], "row_evidence": ["Tea 12"], "page": 1},
+        ]}, None)
+        table = extraction["tables"][0]
+        self.assertEqual(table["rows"], [["Tea", "10"], ["Tea", "12"]])
+        self.assertEqual(table["row_conflicts"][0]["row_indexes"], [0, 1])
+
+
+class ModelRetryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_malformed_json_gets_one_repair_attempt(self):
+        from app.models import extract_with_ollama
+
+        class Response:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return self.payload
+
+        class Client:
+            def __init__(self, *args, **kwargs):
+                self.calls = 0
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def post(self, *args, **kwargs):
+                self.calls += 1
+                if self.calls == 1:
+                    return Response({"response": "{bad", "done": True})
+                return Response({"response": json.dumps({"document_type": "note", "fields": {}, "tables": []}), "done": True})
+
+            async def get(self, *args, **kwargs):
+                return Response({"models": []})
+
+        with patch("app.models.httpx.AsyncClient", Client):
+            extraction, metrics = await asyncio.wait_for(
+                extract_with_ollama("hello", "note.txt", mode="text"), timeout=5
+            )
+        self.assertEqual(extraction["document_type"], "note")
+        self.assertEqual(metrics["response_attempts"], 2)
+
+
+if __name__ == "__main__":
+    unittest.main()

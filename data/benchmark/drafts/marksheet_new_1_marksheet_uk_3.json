@@ -1,0 +1,215 @@
+{
+  "document_id": "marksheet_new_1",
+  "source_file": "Sample_docs/marksheet uk 3.webp",
+  "annotation_status": "draft_needs_human_review",
+  "is_gold_label": false,
+  "split": null,
+  "schema": {
+    "document_type": "marksheet",
+    "fields": {
+      "student_name": {
+        "type": "string",
+        "required": false
+      },
+      "roll_number": {
+        "type": "string",
+        "required": false
+      },
+      "registration_number": {
+        "type": "string",
+        "required": false
+      },
+      "date_of_birth": {
+        "type": "string",
+        "required": false
+      },
+      "father_name": {
+        "type": "string",
+        "required": false
+      },
+      "mother_name": {
+        "type": "string",
+        "required": false
+      },
+      "school_name": {
+        "type": "string",
+        "required": false
+      },
+      "board": {
+        "type": "string",
+        "required": false
+      },
+      "examination": {
+        "type": "string",
+        "required": false
+      },
+      "exam_year": {
+        "type": "string",
+        "required": false
+      },
+      "result": {
+        "type": "string",
+        "required": false
+      },
+      "date_of_issue": {
+        "type": "string",
+        "required": false
+      },
+      "subjects_and_marks": {
+        "type": "table",
+        "required": true,
+        "columns": [
+          "subject_code",
+          "subject",
+          "theory_marks",
+          "practical_marks",
+          "total_marks",
+          "total_in_words",
+          "grade"
+        ]
+      }
+    }
+  },
+  "candidate_fields": {
+    "registration_number": {
+      "value": "H121/40657/0006",
+      "evidence": "a 2766 5, H 2 RegnNo. H121/40657/0006 |»",
+      "page": 0,
+      "bbox": []
+    },
+    "date_of_birth": {
+      "value": "04-05-2005",
+      "evidence": "Date of Birth 04-05-2005 4TH MAY TWO THOUSAND FIVE",
+      "page": 0,
+      "bbox": []
+    },
+    "board": {
+      "value": "Central Board of Secondary Education",
+      "evidence": "CENTRAL BOARD OF SECONDARY EDUCATION",
+      "page": 0,
+      "bbox": []
+    },
+    "examination": {
+      "value": "Secondary School Examination",
+      "evidence": "SECONDARY SCHOOL EXAMINATION, 2021",
+      "page": 0,
+      "bbox": []
+    },
+    "exam_year": {
+      "value": "2021",
+      "evidence": "SECONDARY SCHOOL EXAMINATION, 2021",
+      "page": 0,
+      "bbox": []
+    },
+    "result": {
+      "value": "PASS",
+      "evidence": "परिणाम Result PASS",
+      "page": 0,
+      "bbox": []
+    },
+    "date_of_issue": {
+      "value": "03-08-2001",
+      "evidence": "fries Dated: 03-08-2001 Oe Dated: 03-08-2021 Controller of Exan",
+      "page": 0,
+      "bbox": []
+    }
+  },
+  "candidate_tables": [
+    {
+      "name": "subjects_and_marks",
+      "headers": [
+        "subject_code",
+        "subject",
+        "theory_marks",
+        "practical_marks",
+        "total_marks",
+        "total_in_words",
+        "grade"
+      ],
+      "rows": [
+        [
+          "184",
+          "ENGLISHLNG & LIT",
+          "070",
+          "019",
+          "089",
+          "",
+          "A2"
+        ],
+        [
+          "085",
+          "HINDI COURSE-B oss",
+          "019",
+          "088",
+          "841",
+          "",
+          ""
+        ],
+        [
+          "241",
+          "MATHEMATICS BASIC",
+          "050",
+          "019",
+          "069",
+          "",
+          ""
+        ],
+        [
+          "086",
+          "SCIENCE",
+          "054",
+          "019",
+          "073",
+          "SEVENTY THREE",
+          ""
+        ],
+        [
+          "087",
+          "SOCIAL SCIENCE",
+          "071",
+          "020",
+          "091",
+          "",
+          "A2"
+        ],
+        [
+          "402",
+          "INFORMATION TECHNOLOGY",
+          "044",
+          "050",
+          "094",
+          "",
+          "A2"
+        ],
+        [
+          "1०4",
+          "by the school as per format pr",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ]
+      ],
+      "row_evidence": [
+        "= | 184 | ENGLISHLNG & LIT. 070 | 019 | 089 | EIGHTY NINE a2 \\e",
+        "© | 085 | HINDI COURSE-B oss | 019 | 088 | EIGHTY EIGHT 841 |e",
+        "| 241 | MATHEMATICS BASIC 050 | o19 | 069 | SIXTY NINE 82 |p",
+        "| 086 | SCIENCE 054. | 019 | 073 | SEVENTYTHREE] 81 |",
+        "© | 087 | SOCIAL SCIENCE 71 | 020 | 091 | NINETY ONE a2 |e",
+        "= | 402 | INFORMATION TECHNOLOGY 044 | 050 | 094 | NINETY FOUR a2 |i",
+        "1०4 by the school as per format pr"
+      ],
+      "page": 0
+    }
+  ],
+  "ocr_text_for_comparison": "[Page 1]\n1067228\niin,\nZe केन्द्रीय माध्यमिक शिक्षा बोर्ड\nCENTRAL BOARD OF SECONDARY EDUCATION\n2 अंक विवरणिका सह प्रमाण पत्र\n_ MARKS STATEMENT CUM CERTIFICATE\nमाध्यमिक विद्यालय परीक्षा, 2021\nSECONDARY SCHOOL EXAMINATION, 2021\n57 - SUNCITY SCHOOL, SEC-54 GURGAON\nउपलब्धियां निम्नानुसार = has achieved Scholastic Achievements as under :\nप्राप्तांक MARKS OBTAINED\nविषय 5\naw\nSUBJECT लिखित 01)\nTHEORY प्रा. 77.\nयोग | योग (बब्दों H) _|PostTionaL| |\nTOTAL |TOTAL (IN WORDS)| GRADE\nENGLISH LNG & LIT. 070 019 089 | EIGHTY NINE A2\nHINDI COURSE-B 069 019 088 | EIGHTY EIGHT Bi\nMATHEMATICS BASIC 050 019 069 | SIXTY NINE 82\nSCIENCE 054 019 073 | SEVENTY THREE\nSOCIAL SCIENCE 071 020 091 | NINETY ONE\nADDITIONAL SUBJECT\nINFORMATION TECHNOLOGY NINETY FOUR\nसंक्षिप्रयों का अर्थ : Abbreviations\nAB : अनुपस्थित Absent\n1A: आंतरिक मूल्यांकन Internal Assessment\n.. प्रा. /?0. : wrath / Practical\nER : अनिवार्य पुनराबृत्ति सभी विषयो में Essential Repeat in थी subjects\nपरिणाम Result\nदिल्‍ली Delhi\nfries Dated: 03-08-2001 Oe Dated: 03-08-2021 Controller of Exan\netm Geechee er अतशासन Ser A विधालय द्वार अपने स्तर पर बोर्ड द्वारा ont ्रारूपनुसार प्रदान की जाती है।\n‘o-Scholastie achievements : Grading for Co-Scholastic and Discipline area 1ed by the school as per format pr\na केन्द्रीय माध्यमिक शिक्षा बोर्ड\nउपलब्धियां निम्नानुसार हैं 188 achieved Scholastic Achievements as under :\nSUBJECT लिखित मू | योग | योग (adi में) POSITIONAL |\nTHEORY | yy pp, | TOTAL | TOTAL (IN WORDS) 89\nHINDI COURSE-B 069 019 088 | EIGHTY EIGHT\nMATHEMATICS BASIC 050 019 069 | SIXTY NINE\nपरिणाम Result PASS\nदिल्‍ली Delhi ater नियंत्रक\nerr ge agerer Aer HH विधालय द्वारा अपने स्तर पर बोर्ड re जाए प्राकपनुसार प्रदान की जाती है।\npin Hash: 100 by the school as per format pr\nसह-शैक्षणिक उपलब्धियां i\no-Scholastic achievements : Grading for Co-Scholastic and Discipline area\ner oc Le a GAR ea 1\na 2766 5, H 2 RegnNo. H121/40657/0006 |»\nGea . केन्द्रीय माध्यमिक शिक्षा बोर्ड 2)\nwe, _ CENTRAL BOARD OF SECONDARY EDUCATION i हे\n॥ Lge अंक विवरणिका सह प्रमाण पत्र i\ni __ MARKS STATEMENT CUM CERTIFICATE Dd,\n[oe माध्यमिक विद्यालय परीक्षा, 2021 i. t\n2: | 7 __ SECONDARY SCHOOL EXAMINATION, 2021 4% LA\nae 1\nहे हा | b\nGuardian’s Name —SUNIT MADAN '\nDate of Birth 04-05-2005 4TH MAY TWO THOUSAND FIVE\njal 40657 - SUNCITY SCHOOL, SEC-54 GURGAON [2\ntat उपलब्धियां निम्नानुसार € has achieved Scholastic Achievements as under :\nee विषय स्थितीय ग्रेड | =\nठप SUBJECT लिखित Hie योग | योग (शब्दों में) |POSMTIONAL) ४\n| THEORY | 77 pq, | TOTAL |TOTAL (IN WORDS) EADS | के\n= | 184 | ENGLISHLNG & LIT. 070 | 019 | 089 | EIGHTY NINE a2 \\e\n© | 085 | HINDI COURSE-B oss | 019 | 088 | EIGHTY EIGHT 841 |e\n| 241 | MATHEMATICS BASIC 050 | o19 | 069 | SIXTY NINE 82 |p\n| 086 | SCIENCE 054. | 019 | 073 | SEVENTYTHREE] 81 |\n© | 087 | SOCIAL SCIENCE 71 | 020 | 091 | NINETY ONE a2 |e\na | ADDITIONAL SUBJECT रा\n= | 402 | INFORMATION TECHNOLOGY 044 | 050 | 094 | NINETY FOUR a2 |i\ne q\n_ संक्षिप्तयों का अर्थ : Abbreviations i\nAB: अनुपस्थित Absent परिणाम Result PASS i\n1A: आंतरिक मूल्यांकन Internal Assessment A\n3. W./PR. \"ee ae o |\nER: आनिवार्य पुनरावृत्ति सभी Essential Repeat in all subjects Ou Oho. 22222\naris Dated: 03-08-2021 0 ES oe Dated: 03-08-2021 Controller of Examinations |\nसह-शैक्षणिक उपलब्धियां : सह-रैः पार aH A विधालय द्वार अपने स्वर पर बोर्ड द्वार जारी प्रापनुसार पदान की जाती है. 1060७ 8090...\nhits\nD\nip\nCoal\n7\nRegn.No, H121/40657/0006\neae\ni b\nQin\nq\nthat .\nISHA MADAN\nIEGHA MADAN\n1 b\nian’s sen SUNIT MADAN\n04-05-2005 4TH MAY TWO THOUSAND FIVE\n0657 - SUNCITY SCHOOL, SEC-54 GURGAON\n52%\nगा निम्नानुसार हैं 183 achieved Scholastic Achievements as under :\nUB.\noA,\nयोग (at में)\nPOSITIONAL |\nDE\nSUBJECT\n‘THEORY,\nTOTAL |TOTAL (IN WORDS)\nGRADE\nENGLISH LNG & LIT.\n070\n019\n089\nEIGHTY NINE\nA2\n184\n085\nHINDI COURSE-B\n069\n088\nEIGHTY EIGHT\nछ1\n82\n241\nMATHEMATICS BASIC\n050\nSIXTY NINE\nB1\n086\nSCIENCE\n054\n073\nEVENTY THREE\nNINETY ONE\ne\n087\nSOCIAL SCIENCE\n071\n020\n091\ngy\n044\n094\nNINETY FOUR\nINFORMATION TECHNOLOGY\n| 402\nPASS\nप्रा./?९. : प्रायोगिक / Practical\n(OM\nController of Exa\nations\nदिनांक0/०: 03-08-2021 ___ _++ +.+.++ 7 गा Dated: 03-08-2021\n1०4 by the school as per format pr\nal",
+  "warnings": [
+    "OCR-generated candidates only; verify every scalar and table cell against the scan.",
+    "Do not use this draft as held-out evaluation until labels are verified and the split is frozen.",
+    "Bounding-box labels have not been annotated.",
+    "Superseded by a visual review draft. Do not use as a gold annotation."
+  ],
+  "draft_status": "superseded_ocr_only_candidate",
+  "superseded_by": "marksheet_new_1_visual_review.json"
+}

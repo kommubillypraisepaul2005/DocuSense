@@ -1,0 +1,299 @@
+{
+  "draft_status": "approved_by_user_for_development_regression",
+  "is_gold_label": true,
+  "split": "development_regression",
+  "notes": [
+    "User approved these visually checked candidate labels on 2026-10-31.",
+    "Use only for development/regression; these are not held-out test data.",
+    "Bounding boxes have not been annotated."
+  ],
+  "document_id": "marksheet_new_2",
+  "source_file": "Sample_docs/marksheet uk1.webp",
+  "schema": {
+    "document_type": "marksheet",
+    "fields": {
+      "student_name": {
+        "type": "string",
+        "required": false
+      },
+      "roll_number": {
+        "type": "string",
+        "required": false
+      },
+      "registration_number": {
+        "type": "string",
+        "required": false
+      },
+      "mother_name": {
+        "type": "string",
+        "required": false
+      },
+      "father_name": {
+        "type": "string",
+        "required": false
+      },
+      "school_name": {
+        "type": "string",
+        "required": false
+      },
+      "board": {
+        "type": "string",
+        "required": false
+      },
+      "examination": {
+        "type": "string",
+        "required": false
+      },
+      "exam_year": {
+        "type": "string",
+        "required": false
+      },
+      "stream": {
+        "type": "string",
+        "required": false
+      },
+      "result": {
+        "type": "string",
+        "required": false
+      },
+      "grand_total": {
+        "type": "string",
+        "required": false
+      },
+      "grand_total_in_words": {
+        "type": "string",
+        "required": false
+      },
+      "date_of_publication": {
+        "type": "string",
+        "required": false
+      },
+      "subjects_and_marks": {
+        "type": "table",
+        "required": true,
+        "columns": [
+          "subject",
+          "max_marks",
+          "marks_awarded",
+          "marks_in_words",
+          "grade"
+        ]
+      }
+    }
+  },
+  "candidate_fields": {
+    "student_name": {
+      "value": "SOBA KAMAR",
+      "evidence": "THIS IS TO CERTIFY THAT SOBA KAMAR",
+      "page": 1,
+      "bbox": []
+    },
+    "roll_number": {
+      "value": "328HC059",
+      "evidence": "ROLL NO. 328HC059",
+      "page": 1,
+      "bbox": []
+    },
+    "registration_number": {
+      "value": "HC28S19063",
+      "evidence": "REGN. NO. HC28S19063",
+      "page": 1,
+      "bbox": []
+    },
+    "mother_name": {
+      "value": "SANMATI KAMAR",
+      "evidence": "SON / DAUGHTER OF SMT. SANMATI KAMAR",
+      "page": 1,
+      "bbox": []
+    },
+    "father_name": {
+      "value": "LOKANATH KAMAR",
+      "evidence": "& SRI. LOKANATH KAMAR",
+      "page": 1,
+      "bbox": []
+    },
+    "school_name": {
+      "value": "GOVT. (SSD) H.S. SCHOOL, KARCHAMAL",
+      "evidence": "OF GOVT. (SSD) H.S. SCHOOL, KARCHAMAL",
+      "page": 1,
+      "bbox": []
+    },
+    "board": {
+      "value": "COUNCIL OF HIGHER SECONDARY EDUCATION, ODISHA",
+      "evidence": "COUNCIL OF HIGHER SECONDARY EDUCATION, ODISHA",
+      "page": 1,
+      "bbox": []
+    },
+    "examination": {
+      "value": "HIGHER SECONDARY EXAMINATION — ANNUAL EXAMINATION",
+      "evidence": "HIGHER SECONDARY EXAMINATION; ANNUAL EXAMINATION 2021",
+      "page": 1,
+      "bbox": []
+    },
+    "exam_year": {
+      "value": "2021",
+      "evidence": "ANNUAL EXAMINATION 2021",
+      "page": 1,
+      "bbox": []
+    },
+    "stream": {
+      "value": "SCIENCE (REGULAR)",
+      "evidence": "STREAM SCIENCE (REGULAR)",
+      "page": 1,
+      "bbox": []
+    },
+    "result": {
+      "value": "PASS — SECOND DIVISION",
+      "evidence": "HAS PASSED; IS PLACED IN SECOND DIVISION",
+      "page": 1,
+      "bbox": []
+    },
+    "grand_total": {
+      "value": "339",
+      "evidence": "GRAND TOTAL IN FIGURES 339",
+      "page": 1,
+      "bbox": []
+    },
+    "grand_total_in_words": {
+      "value": "THREE THREE NINE",
+      "evidence": "IN WORDS THREE THREE NINE",
+      "page": 1,
+      "bbox": []
+    },
+    "date_of_publication": {
+      "value": "31-JUL-2021",
+      "evidence": "DATE OF PUBLICATION: 31-JUL-2021",
+      "page": 1,
+      "bbox": []
+    }
+  },
+  "candidate_tables": [
+    {
+      "name": "subjects_and_marks",
+      "headers": [
+        "subject",
+        "max_marks",
+        "marks_awarded",
+        "marks_in_words",
+        "grade"
+      ],
+      "rows": [
+        [
+          "ENGLISH",
+          "100",
+          "048",
+          "ZERO FOUR EIGHT",
+          ""
+        ],
+        [
+          "MIL ODIA",
+          "100",
+          "053",
+          "ZERO FIVE THREE",
+          ""
+        ],
+        [
+          "PHYSICS",
+          "70",
+          "040",
+          "ZERO FOUR ZERO",
+          ""
+        ],
+        [
+          "PHYSICS (PRACTICAL)",
+          "30",
+          "026",
+          "ZERO TWO SIX",
+          ""
+        ],
+        [
+          "CHEMISTRY",
+          "70",
+          "028",
+          "ZERO TWO EIGHT",
+          ""
+        ],
+        [
+          "CHEMISTRY (PRACTICAL)",
+          "30",
+          "024",
+          "ZERO TWO FOUR",
+          ""
+        ],
+        [
+          "BOTANY",
+          "35",
+          "014",
+          "ZERO ONE FOUR",
+          ""
+        ],
+        [
+          "BOTANY (PRACTICAL)",
+          "15",
+          "010",
+          "ZERO ONE ZERO",
+          ""
+        ],
+        [
+          "ZOOLOGY",
+          "35",
+          "014",
+          "ZERO ONE FOUR",
+          ""
+        ],
+        [
+          "ZOOLOGY (PRACTICAL)",
+          "15",
+          "011",
+          "ZERO ONE ONE",
+          ""
+        ],
+        [
+          "MATHEMATICS",
+          "100",
+          "071",
+          "ZERO SEVEN ONE",
+          ""
+        ],
+        [
+          "ENVIRONMENTAL EDUCATION",
+          "",
+          "",
+          "",
+          "B"
+        ],
+        [
+          "YOGA",
+          "",
+          "",
+          "",
+          "B"
+        ],
+        [
+          "BASIC COMPUTER EDUCATION",
+          "",
+          "",
+          "",
+          "C"
+        ]
+      ],
+      "row_evidence": [
+        "ENGLISH 100 48 ZERO FOUR EIGHT",
+        "MIL ODIA 100 53 ZERO FIVE THREE",
+        "PHYSICS 70 40 ZERO FOUR ZERO",
+        "PHYSICS (PRACTICAL) 30 26 ZERO TWO SIX",
+        "CHEMISTRY 70 28 ZERO TWO EIGHT",
+        "CHEMISTRY (PRACTICAL) 30 24 ZERO TWO FOUR",
+        "BOTANY 35 14 ZERO ONE FOUR",
+        "BOTANY (PRACTICAL) 15 10 ZERO ONE ZERO",
+        "ZOOLOGY 35 14 ZERO ONE FOUR",
+        "ZOOLOGY (PRACTICAL) 15 11 ZERO ONE ONE",
+        "MATHEMATICS 100 71 ZERO SEVEN ONE",
+        "ENVIRONMENTAL EDUCATION : B",
+        "YOGA : B",
+        "BASIC COMPUTER EDUCATION : C"
+      ],
+      "page": 1
+    }
+  ]
+}

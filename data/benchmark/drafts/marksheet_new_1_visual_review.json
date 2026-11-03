@@ -1,0 +1,231 @@
+{
+  "draft_status": "approved_by_user_for_development_regression",
+  "is_gold_label": true,
+  "split": "development_regression",
+  "notes": [
+    "User approved these visually checked candidate labels on 2026-10-31.",
+    "Use only for development/regression; these are not held-out test data.",
+    "Bounding boxes have not been annotated."
+  ],
+  "document_id": "marksheet_new_1",
+  "source_file": "Sample_docs/marksheet uk 3.webp",
+  "schema": {
+    "document_type": "marksheet",
+    "fields": {
+      "student_name": {
+        "type": "string",
+        "required": false
+      },
+      "roll_number": {
+        "type": "string",
+        "required": false
+      },
+      "registration_number": {
+        "type": "string",
+        "required": false
+      },
+      "date_of_birth": {
+        "type": "string",
+        "required": false
+      },
+      "mother_name": {
+        "type": "string",
+        "required": false
+      },
+      "father_name": {
+        "type": "string",
+        "required": false
+      },
+      "school_name": {
+        "type": "string",
+        "required": false
+      },
+      "board": {
+        "type": "string",
+        "required": false
+      },
+      "examination": {
+        "type": "string",
+        "required": false
+      },
+      "exam_year": {
+        "type": "string",
+        "required": false
+      },
+      "result": {
+        "type": "string",
+        "required": false
+      },
+      "date_of_issue": {
+        "type": "string",
+        "required": false
+      },
+      "subjects_and_marks": {
+        "type": "table",
+        "required": true,
+        "columns": [
+          "subject_code",
+          "subject",
+          "theory_marks",
+          "practical_marks",
+          "total_marks",
+          "total_in_words",
+          "grade"
+        ]
+      }
+    }
+  },
+  "candidate_fields": {
+    "student_name": {
+      "value": "DISHA MADAN",
+      "evidence": "This is to certify that DISHA MADAN",
+      "page": 1,
+      "bbox": []
+    },
+    "roll_number": {
+      "value": "17158967",
+      "evidence": "Roll No. 17158967",
+      "page": 1,
+      "bbox": []
+    },
+    "registration_number": {
+      "value": "H121/40657/0006",
+      "evidence": "Regn. No. H121/40657/0006",
+      "page": 1,
+      "bbox": []
+    },
+    "date_of_birth": {
+      "value": "04-05-2005",
+      "evidence": "Date of Birth 04-05-2005",
+      "page": 1,
+      "bbox": []
+    },
+    "mother_name": {
+      "value": "MEGHA MADAN",
+      "evidence": "Mother’s Name MEGHA MADAN",
+      "page": 1,
+      "bbox": []
+    },
+    "father_name": {
+      "value": "SUNIT MADAN",
+      "evidence": "Father’s / Guardian’s Name SUNIT MADAN",
+      "page": 1,
+      "bbox": []
+    },
+    "school_name": {
+      "value": "40657 - SUNCITY SCHOOL, SEC-54 GURGAON",
+      "evidence": "School 40657 - SUNCITY SCHOOL, SEC-54 GURGAON",
+      "page": 1,
+      "bbox": []
+    },
+    "board": {
+      "value": "CENTRAL BOARD OF SECONDARY EDUCATION",
+      "evidence": "CENTRAL BOARD OF SECONDARY EDUCATION",
+      "page": 1,
+      "bbox": []
+    },
+    "examination": {
+      "value": "SECONDARY SCHOOL EXAMINATION",
+      "evidence": "SECONDARY SCHOOL EXAMINATION, 2021",
+      "page": 1,
+      "bbox": []
+    },
+    "exam_year": {
+      "value": "2021",
+      "evidence": "SECONDARY SCHOOL EXAMINATION, 2021",
+      "page": 1,
+      "bbox": []
+    },
+    "result": {
+      "value": "PASS",
+      "evidence": "Result PASS",
+      "page": 1,
+      "bbox": []
+    },
+    "date_of_issue": {
+      "value": "03-08-2021",
+      "evidence": "Dated: 03-08-2021",
+      "page": 1,
+      "bbox": []
+    }
+  },
+  "candidate_tables": [
+    {
+      "name": "subjects_and_marks",
+      "headers": [
+        "subject_code",
+        "subject",
+        "theory_marks",
+        "practical_marks",
+        "total_marks",
+        "total_in_words",
+        "grade"
+      ],
+      "rows": [
+        [
+          "184",
+          "ENGLISH LNG & LIT.",
+          "070",
+          "019",
+          "089",
+          "EIGHTY NINE",
+          "A2"
+        ],
+        [
+          "085",
+          "HINDI COURSE-B",
+          "069",
+          "019",
+          "088",
+          "EIGHTY EIGHT",
+          "B1"
+        ],
+        [
+          "241",
+          "MATHEMATICS BASIC",
+          "050",
+          "019",
+          "069",
+          "SIXTY NINE",
+          "B2"
+        ],
+        [
+          "086",
+          "SCIENCE",
+          "054",
+          "019",
+          "073",
+          "SEVENTY THREE",
+          "B1"
+        ],
+        [
+          "087",
+          "SOCIAL SCIENCE",
+          "071",
+          "020",
+          "091",
+          "NINETY ONE",
+          "A2"
+        ],
+        [
+          "402",
+          "INFORMATION TECHNOLOGY",
+          "044",
+          "050",
+          "094",
+          "NINETY FOUR",
+          "A2"
+        ]
+      ],
+      "row_evidence": [
+        "184 ENGLISH LNG & LIT. 070 019 089 EIGHTY NINE A2",
+        "085 HINDI COURSE-B 069 019 088 EIGHTY EIGHT B1",
+        "241 MATHEMATICS BASIC 050 019 069 SIXTY NINE B2",
+        "086 SCIENCE 054 019 073 SEVENTY THREE B1",
+        "087 SOCIAL SCIENCE 071 020 091 NINETY ONE A2",
+        "402 INFORMATION TECHNOLOGY 044 050 094 NINETY FOUR A2"
+      ],
+      "page": 1
+    }
+  ]
+}
