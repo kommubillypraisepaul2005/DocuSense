@@ -48,8 +48,8 @@ class ExtractorTests(unittest.TestCase):
 
     def test_receipt_rules_emit_separate_adjustment_table(self):
         extraction = extract_rules(
-            "Receipt # R-100\\nSubtotal 20.00\\nCoffee 2 5.00 10.00\\n"
-            "Discount: 1.00\\nService Charge 2.00\\nFood Tax 1.60\\nTotal 22.60"
+            "Receipt # R-100\nSubtotal 20.00\nCoffee 2 5.00 10.00\n"
+            "Discount: 1.00\nService Charge 2.00\nFood Tax 1.60\nTotal 22.60"
         )
         tables = {table["name"]: table for table in extraction["tables"]}
         self.assertIn("line_items", tables)
