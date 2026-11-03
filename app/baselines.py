@@ -180,6 +180,49 @@ def _tax_rows(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]]:
     return headers, deduped, deduped_evidence
 
 
+def _adjustment_rows(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]]:
+    """Classify explicitly labelled invoice adjustments without mixing them into purchased items."""
+    headers = ["adjustment_type", "description", "amount"]
+    rows: list[list[str]] = []
+    evidence: list[str] = []
+    labels = (
+        (r"discount|coupon|promotion|promo|rebate", "discount"),
+        (r"refund|return|credit", "return"),
+        (r"surcharge|fee|service\s+charge|delivery\s+fee|shipping(?:\s+fee)?|tip|gratuity", "fee"),
+        (r"deposit|round(?:ing)?\s+off", "other"),
+    )
+    amount_pattern = re.compile(
+        r"(?P<amount>\(?\s*-?\s*(?:[$₹€£]\s*)?\d[\d,]*(?:\.\d{1,2})?\s*\)?)\s*$"
+    )
+    for line in lines:
+        raw = line.strip()
+        if not raw:
+            continue
+        label_match = None
+        adjustment_type = ""
+        for label_pattern, kind in labels:
+            candidate = re.match(rf"^\s*(?P<label>{label_pattern})\b", raw, re.IGNORECASE)
+            if candidate:
+                label_match = candidate
+                adjustment_type = kind
+                break
+        if not label_match:
+            continue
+        amount_match = amount_pattern.search(raw)
+        if not amount_match or re.search(r"%\s*$", raw):
+            continue
+        printed_amount = amount_match.group("amount")
+        amount = re.sub(r"\s+", "", printed_amount).replace(",", "").strip("$₹€£")
+        if amount.startswith("(") and amount.endswith(")"):
+            amount = "-" + amount[1:-1].lstrip("-")
+        description = raw[:amount_match.start()].strip(" :.-")
+        if not description:
+            description = label_match.group("label")
+        rows.append([adjustment_type, description, amount])
+        evidence.append(raw)
+    return headers, rows, evidence
+
+
 def _marksheet_rows(lines: list[str], columns: list[str]) -> tuple[list[list[str]], list[str]]:
     """Recover subject rows from repeated OCR layouts using the printed 3-digit subject code."""
     candidates: dict[str, list[tuple[tuple[int, int, int, int, int], list[str], str]]] = {}
@@ -629,6 +672,7 @@ def extract_rules(text: str, schema: dict | None = None) -> dict:
     # single tax value.
     line_headers, line_rows, line_quotes = _line_items(lines)
     tax_headers, tax_rows, tax_quotes = _tax_rows(lines)
+    adjustment_headers, adjustment_rows, adjustment_quotes = _adjustment_rows(lines)
     currency_symbol, currency_code, currency_evidence = _currency_facts(text)
     if currency_symbol and currency_evidence:
         values["currency_as_printed"] = (currency_symbol, currency_evidence)
@@ -659,7 +703,7 @@ def extract_rules(text: str, schema: dict | None = None) -> dict:
         table_names = [name for name, spec in schema_fields.items() if isinstance(spec, dict) and str(spec.get("type", "")).lower() == "table"]
     else:
         table_names = []
-    table_names = table_names or (["line_items", "taxes"] if line_rows or tax_rows else [])
+    table_names = table_names or (["line_items", "taxes", "adjustments"] if line_rows or tax_rows or adjustment_rows else [])
     for name in table_names:
         spec = schema_fields.get(name, {}) if isinstance(schema_fields, dict) else {}
         requested_columns = spec.get("columns", []) if isinstance(spec, dict) else []
@@ -669,6 +713,8 @@ def extract_rules(text: str, schema: dict | None = None) -> dict:
             rows, quotes = _marksheet_rows(lines, headers)
         elif "tax" in name.casefold():
             headers, rows, quotes = tax_headers, tax_rows, tax_quotes
+        elif any(token in name.casefold() for token in ("adjust", "discount", "fee", "return", "refund")):
+            headers, rows, quotes = adjustment_headers, adjustment_rows, adjustment_quotes
         elif any(token in name.casefold() for token in ("item", "line", "product", "transaction")) or "invoice" in str((schema or {}).get("document_type", "")).casefold() or "receipt" in str((schema or {}).get("document_type", "")).casefold():
             headers, rows, quotes = line_headers, line_rows, line_quotes
         else:
