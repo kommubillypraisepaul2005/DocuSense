@@ -1,0 +1,119 @@
+diff --git a/app/baselines.py b/app/baselines.py
+--- a/app/baselines.py
++++ b/app/baselines.py
+@@ -43,35 +43,54 @@ def _line_items(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]]
+     excluded = ("subtotal", "tax", "total", "discount", "cashier", "table", "check", "date", "change", "balance", "only", "visit", "ref num")
+     for line in lines:
+         raw = line.strip()
+         normalized = raw.casefold()
+-        if not raw or any(term in normalized for term in excluded):
++        # Match complete words/phrases: substring matching drops "Vegetable"
++        # because it contains "table".
++        if not raw or any(
++            re.search(rf"(?<!\w){re.escape(term)}(?!\w)", normalized)
++            for term in excluded
++        ):
+             continue
+         amounts = list(MONEY.finditer(raw))
+         if not amounts:
+             continue
+-        # Item rows have either a quantity and one extended amount or a
+-        # quantity, unit price, and extended amount. Never infer missing prices.
+-        prefix = raw[:amounts[-1].start()].strip(" .|:-")
+-        quantity_match = re.match(r"^(\d+)[.\s:-]+(.+)$", prefix)
+-        if not quantity_match:
+-            continue
+-        quantity, item_text = quantity_match.groups()
+-        item_amounts = [match for match in amounts if match.start() >= quantity_match.end(1)]
+-        if not item_amounts:
+-            continue
++        # Support quantity-first ("2 Coffee 3.50 7.00") and
++        # description-first ("Coffee 2 x 3.50 7.00") receipt layouts.
++        prefix = raw[:amounts[-1].start()].strip(" .|:-")
++        quantity_first = re.match(r"^(\d{1,3})[.\s:-]+(.+)$", prefix)
++        if quantity_first:
++            quantity, item_text = quantity_first.groups()
++            item_amounts = [match for match in amounts if match.start() >= quantity_first.end(1)]
++            if not item_amounts:
++                continue
++            if len(item_amounts) >= 2:
++                item_end = item_amounts[-2].start()
++                item_text = re.sub(r"\s+", " ", raw[quantity_first.end(1):item_end]).strip(" .|:-")
++        else:
++            # First check whether the quantity precedes a printed unit price.
++            # If not, check whether it precedes the final amount (no unit price).
++            description_pattern = r"^(.+?)\s+(?:(?:x|@)\s*)?(\d{1,3})\s*(?:x|@)?$"
++            description_prefix = raw[:amounts[-2].start()] if len(amounts) >= 2 else ""
++            description_first = re.match(description_pattern, description_prefix.strip(" .|:-@"), re.IGNORECASE)
++            if description_first:
++                item_amounts = amounts[-2:]
++            else:
++                description_prefix = raw[:amounts[-1].start()]
++                description_first = re.match(description_pattern, description_prefix.strip(" .|:-@"), re.IGNORECASE)
++                item_amounts = amounts[-1:]
++            if not description_first:
++                continue
++            item_text, quantity = description_first.groups()
+         item_text = re.sub(r"^[.\-_*\s]+|[.\-_*\s]+$", "", item_text).strip()
+         if not item_text or not re.search(r"[A-Za-z]{2}", item_text):
+             continue
+         if len(item_amounts) >= 2:
+             unit_price = item_amounts[-2].group(0).replace(" ", "").strip("$₹€£")
+             amount = item_amounts[-1].group(0).replace(" ", "").strip("$₹€£")
+-            # The amount immediately before the final total must be after the
+-            # item description, avoiding accidental capture of quantity text.
+-            item_end = item_amounts[-2].start()
+-            item_text = re.sub(r"\s+", " ", raw[quantity_match.end(1):item_end]).strip(" .|:-")
+         else:
+             unit_price = ""
+             amount = item_amounts[-1].group(0).replace(" ", "").strip("$₹€£")
++        item_text = re.sub(r"\s+", " ", item_text).strip(" .|:-")
+         row = [item_text, quantity, unit_price, amount]
+         normalized_description = re.sub(r"[^a-z0-9]+", " ", item_text.casefold()).strip()
+         key = (normalized_description, quantity.casefold())
+diff --git a/tests/test_pipeline.py b/tests/test_pipeline.py
+--- a/tests/test_pipeline.py
++++ b/tests/test_pipeline.py
+@@ -4,10 +4,41 @@ import json
+ import unittest
+ from unittest.mock import patch
+
++from app.baselines import _line_items
+ from app.extractors import extract_file
+ from app.models import _normalize_extraction, _response_json_schema
+ from app.processor import _ocr_conflicts
+ from app.validation import validate_extraction
+
+
+ class ExtractorTests(unittest.TestCase):
++    def test_receipt_line_items_accept_both_quantity_orders(self):
++        headers, rows, evidence = _line_items([
++            "2 Coffee 3.50 7.00",
++            "Cheese Burger 4 x 5.99 23.96",
++            "Mineral Water 2 1.25 2.50",
++            "Side salad 1 3.25",
++        ])
++        self.assertEqual(headers, ["description", "quantity", "unit_price", "amount"])
++        self.assertEqual(rows, [
++            ["Coffee", "2", "3.50", "7.00"],
++            ["Cheese Burger", "4", "5.99", "23.96"],
++            ["Mineral Water", "2", "1.25", "2.50"],
++            ["Side salad", "1", "", "3.25"],
++        ])
++        self.assertEqual(evidence, [
++            "2 Coffee 3.50 7.00",
++            "Cheese Burger 4 x 5.99 23.96",
++            "Mineral Water 2 1.25 2.50",
++            "Side salad 1 3.25",
++        ])
++
++    def test_receipt_line_item_filter_uses_word_boundaries(self):
++        _headers, rows, _evidence = _line_items([
++            "1 Vegetable soup 4.50 4.50",
++            "Subtotal: 4.50",
++            "Tax 0.36",
++            "Grand Total 4.86",
++        ])
++        self.assertEqual(rows, [["Vegetable soup", "1", "4.50", "4.50"]])
++
+     def test_text_and_html(self):
