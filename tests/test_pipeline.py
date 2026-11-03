@@ -122,7 +122,7 @@ class ValidationTests(unittest.TestCase):
             "subtotal": {"value": "0.30", "evidence": "Subtotal 0.30"},
             "tax": {"value": "0.03", "evidence": "Tax 0.03"},
             "total": {"value": "0.33", "evidence": "Total 0.33"},
-            "line_items": {"value": [{"quantity": "3", "unit_price": "0.10", "amount": "0.29"}]},
+            "line_items": {"value": [{"quantity": "3", "unit_price": "0.10", "amount": "0.27"}]},
         }}
         result = validate_extraction(extraction, segments)
         checks = {item["name"]: item for item in result["checks"]}
