@@ -4,6 +4,7 @@ import json
 import unittest
 from unittest.mock import patch
 
+from app.baselines import _line_items
 from app.extractors import extract_file
 from app.models import _normalize_extraction, _response_json_schema
 from app.processor import _ocr_conflicts
@@ -11,6 +12,43 @@ from app.validation import validate_extraction
 
 
 class ExtractorTests(unittest.TestCase):
+    def test_receipt_line_items_support_both_quantity_orders(self):
+        headers, rows, evidence = _line_items([
+            "2 Coffee 3.50 7.00",
+            "Cheese Burger 4 x 5.99 23.96",
+            "Mineral Water 2 1.25 2.50",
+        ])
+        self.assertEqual(headers, ["description", "quantity", "unit_price", "amount"])
+        self.assertEqual(rows, [
+            ["Coffee", "2", "3.50", "7.00"],
+            ["Cheese Burger", "4", "5.99", "23.96"],
+            ["Mineral Water", "2", "1.25", "2.50"],
+        ])
+        self.assertEqual(evidence, [
+            "2 Coffee 3.50 7.00",
+            "Cheese Burger 4 x 5.99 23.96",
+            "Mineral Water 2 1.25 2.50",
+        ])
+
+    def test_line_item_exclusions_use_word_boundaries(self):
+        _, rows, evidence = _line_items([
+            "2 Vegetable soup 4.00 8.00",
+            "Subtotal 8.00",
+            "Tax 0.80",
+            "Grand Total 8.80",
+        ])
+        self.assertEqual(rows, [["Vegetable soup", "2", "4.00", "8.00"]])
+        self.assertEqual(evidence, ["2 Vegetable soup 4.00 8.00"])
+
+    def test_duplicate_line_items_keep_one_row_and_matching_evidence(self):
+        _, rows, evidence = _line_items([
+            "2 Coffee 3.5 7",
+            "2 Coffee 3.50 7.00",
+        ])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0], ["Coffee", "2", "3.50", "7.00"])
+        self.assertEqual(evidence, ["2 Coffee 3.50 7.00"])
+
     def test_text_and_html(self):
         plain = extract_file("note.txt", b"Invoice number: ABC-123\nTotal: $42.50", ocr_enabled=False)
         self.assertIn("ABC-123", plain["text"])
