@@ -102,7 +102,13 @@ def _line_items(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]
         normalized = raw.casefold()
         if not raw:
             continue
-        if is_excluded(normalized):
+        if is_excluded(normalized) or re.match(
+            r"^(?:\d{1,3}[.\s:-]+)?(?:returned|return|refunded|refund|credited|credit)\b",
+            normalized,
+        ):
+            # Keep explicitly labelled return rows out of purchased items,
+            # even when their amount is positive/ambiguous and cannot be
+            # safely classified as a return adjustment.
             continue
         match = quantity_first.match(raw)
         if match:
