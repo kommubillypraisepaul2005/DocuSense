@@ -30,6 +30,22 @@ class ExtractorTests(unittest.TestCase):
             "Mineral Water 2 1.25 2.50",
         ])
 
+    def test_wrapped_line_item_description_is_joined_with_evidence(self):
+        _, rows, evidence = _line_items([
+            "2 Organic eggs 0.50 1.00",
+            "free range, locally sourced",
+            "Subtotal 1.00",
+            "3 Coffee 2.00 6.00",
+        ])
+        self.assertEqual(rows, [
+            ["Organic eggs free range, locally sourced", "2", "0.50", "1.00"],
+            ["Coffee", "3", "2.00", "6.00"],
+        ])
+        self.assertEqual(evidence, [
+            "2 Organic eggs 0.50 1.00\\nfree range, locally sourced",
+            "3 Coffee 2.00 6.00",
+        ])
+
     def test_line_item_exclusions_use_word_boundaries(self):
         _, rows, evidence = _line_items([
             "2 Vegetable soup 4.00 8.00",
