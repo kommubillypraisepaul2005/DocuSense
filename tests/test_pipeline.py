@@ -4,7 +4,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from app.baselines import _line_items
+from app.baselines import _adjustment_rows, _line_items
 from app.extractors import extract_file
 from app.models import _normalize_extraction, _response_json_schema
 from app.processor import _ocr_conflicts
@@ -44,6 +44,30 @@ class ExtractorTests(unittest.TestCase):
         self.assertEqual(evidence, [
             "2 Organic eggs 0.50 1.00\nfree range, locally sourced",
             "3 Coffee 2.00 6.00",
+        ])
+
+    def test_adjustments_keep_discounts_fees_and_returns_separate(self):
+        headers, rows, evidence = _adjustment_rows([
+            "Discount: 5.00",
+            "Service Charge 2.50",
+            "Refund -3.00",
+            "Return (4.25)",
+            "Food Tax 0.80",
+            "Coffee 2 3.00 6.00",
+            "Total 7.05",
+        ])
+        self.assertEqual(headers, ["adjustment_type", "description", "amount"])
+        self.assertEqual(rows, [
+            ["discount", "Discount", "5.00"],
+            ["fee", "Service Charge", "2.50"],
+            ["return", "Refund", "-3.00"],
+            ["return", "Return", "-4.25"],
+        ])
+        self.assertEqual(evidence, [
+            "Discount: 5.00",
+            "Service Charge 2.50",
+            "Refund -3.00",
+            "Return (4.25)",
         ])
 
     def test_line_item_exclusions_use_word_boundaries(self):
