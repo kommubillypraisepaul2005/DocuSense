@@ -116,6 +116,34 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(all(item["grounded"] for item in result["grounded_fields"].values()))
         self.assertTrue(result["checks"][0]["passed"])
 
+    def test_invoice_money_uses_decimal_and_detects_line_amount_mismatch(self):
+        segments = [{"index": 1, "text": "Subtotal 0.30 Tax 0.03 Total 0.33", "regions": []}]
+        extraction = {"fields": {
+            "subtotal": {"value": "0.30", "evidence": "Subtotal 0.30"},
+            "tax": {"value": "0.03", "evidence": "Tax 0.03"},
+            "total": {"value": "0.33", "evidence": "Total 0.33"},
+            "line_items": {"value": [{"quantity": "3", "unit_price": "0.10", "amount": "0.29"}]},
+        }}
+        result = validate_extraction(extraction, segments)
+        checks = {item["name"]: item for item in result["checks"]}
+        self.assertTrue(checks["subtotal_plus_tax_equals_total"]["passed"])
+        self.assertFalse(checks["line_item_quantity_times_unit_price_equals_amount"]["passed"])
+        self.assertTrue(result["review_required"])
+
+    def test_invoice_line_items_sum_uses_printed_amounts(self):
+        segments = [{"index": 1, "text": "Subtotal 0.30 Tax 0.03 Total 0.33", "regions": []}]
+        extraction = {"fields": {
+            "subtotal": {"value": "0.30", "evidence": "Subtotal 0.30"},
+            "tax": {"value": "0.03", "evidence": "Tax 0.03"},
+            "total": {"value": "0.33", "evidence": "Total 0.33"},
+            "line_items": {"value": [{"quantity": "3", "unit_price": "0.10", "amount": "0.30"}]},
+        }}
+        result = validate_extraction(extraction, segments)
+        checks = {item["name"]: item for item in result["checks"]}
+        self.assertTrue(checks["subtotal_plus_tax_equals_total"]["passed"])
+        self.assertTrue(checks["line_item_quantity_times_unit_price_equals_amount"]["passed"])
+        self.assertTrue(checks["line_items_sum_equals_subtotal"]["passed"])
+
     def test_unmatched_field_routes_to_review(self):
         result = validate_extraction({"fields": {"total": {"value": "99", "evidence": "Total: 99"}}}, [{"index": 1, "text": "Total: 10", "regions": []}])
         self.assertTrue(result["review_required"])
