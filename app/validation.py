@@ -22,20 +22,24 @@ def _field_parts(field: Any) -> tuple[Any, str | None, int | None]:
     return value, str(evidence).strip() if evidence else None, page
 
 
-def _money(value: Any) -> float | None:
-    if value is None:
+def _money(value: Any) -> Decimal | None:
+    """Parse money without binary floating-point rounding errors.
+
+    Commas are treated as thousands separators. Locale-ambiguous decimal
+    formats should be reviewed rather than guessed.
+    """
+    if value is None or isinstance(value, bool):
         return None
-    if isinstance(value, (int, float)):
-        return float(value)
     raw = str(value).strip()
     negative = raw.startswith("(") and raw.endswith(")")
-    cleaned = re.sub(r"[^0-9,.\-]", "", raw).replace(",", "")
-    try:
-        result = float(cleaned)
-        return -abs(result) if negative else result
-    except ValueError:
+    cleaned = re.sub(r"[^0-9,.\\-]", "", raw).replace(",", "")
+    if not cleaned or cleaned in {"-", ".", "-."}:
         return None
-
+    try:
+        result = Decimal(cleaned)
+        return -abs(result) if negative else result
+    except InvalidOperation:
+        return None
 
 def _fold(text: str) -> str:
     return re.sub(r"[\W_]+", " ", text, flags=re.UNICODE).strip().casefold()
@@ -484,30 +488,41 @@ def validate_extraction(extraction: dict[str, Any] | None, segments: list[dict[s
     tax = _money(normalized.get("tax") or normalized.get("tax_amount"))
     total = _money(normalized.get("total") or normalized.get("invoice_total"))
     if subtotal is not None and tax is not None and total is not None:
-        passed = abs((subtotal + tax) - total) <= 0.02
-        checks.append({"name": "subtotal_plus_tax_equals_total", "passed": passed, "expected": round(subtotal + tax, 2), "actual": round(total, 2)})
+        expected_total = subtotal + tax
+        passed = abs(expected_total - total) <= Decimal("0.02")
+        checks.append({"name": "subtotal_plus_tax_equals_total", "passed": passed, "expected": float(expected_total.quantize(Decimal("0.01"))), "actual": float(total.quantize(Decimal("0.01")))})
         if not passed:
             reasons.append("Invoice arithmetic check failed: subtotal plus tax does not equal total.")
 
     line_items = normalized.get("line_items") or normalized.get("items")
-    if isinstance(line_items, list) and total is not None:
-        line_sum = 0.0
+    if isinstance(line_items, list):
+        line_sum = Decimal("0")
         count = 0
+        row_math_failures = 0
         for item in line_items:
             if not isinstance(item, dict):
                 continue
             quantity = _money(item.get("quantity") or item.get("qty"))
             unit_price = _money(item.get("unit_price") or item.get("price"))
             amount = _money(item.get("amount") or item.get("line_total"))
-            calculated = quantity * unit_price if quantity is not None and unit_price is not None else amount
-            if calculated is not None:
-                line_sum += calculated
+            calculated = quantity * unit_price if quantity is not None and unit_price is not None else None
+            if calculated is not None and amount is not None and abs(calculated - amount) > Decimal("0.02"):
+                row_math_failures += 1
+            row_total = amount if amount is not None else calculated
+            if row_total is not None:
+                line_sum += row_total
                 count += 1
+        if row_math_failures:
+            checks.append({"name": "line_item_quantity_times_unit_price_equals_amount", "passed": False, "failed_rows": row_math_failures})
+            reasons.append(f"Line-item arithmetic check failed: quantity multiplied by unit price disagrees with the printed amount in {row_math_failures} row(s).")
+        elif count:
+            checks.append({"name": "line_item_quantity_times_unit_price_equals_amount", "passed": True, "failed_rows": 0})
         if count and subtotal is not None:
-            passed = abs(line_sum - subtotal) <= max(0.02, 0.001 * abs(subtotal))
-            checks.append({"name": "line_items_sum_equals_subtotal", "passed": passed, "expected": round(line_sum, 2), "actual": round(subtotal, 2)})
+            tolerance = max(Decimal("0.02"), Decimal("0.001") * abs(subtotal))
+            passed = abs(line_sum - subtotal) <= tolerance
+            checks.append({"name": "line_items_sum_equals_subtotal", "passed": passed, "expected": float(line_sum.quantize(Decimal("0.01"))), "actual": float(subtotal.quantize(Decimal("0.01")))})
             if not passed:
-                reasons.append("Line-item arithmetic check failed: line items do not sum to subtotal.")
+                reasons.append("Line-item arithmetic check failed: printed line amounts do not sum to subtotal.")
 
     if extraction.get("uncertainties"):
         reasons.append("The model reported one or more uncertain fields.")
