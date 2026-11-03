@@ -64,7 +64,7 @@ def _evidenced(value: str, line: str) -> dict[str, Any]:
 
 
 def _line_items(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]]:
-    """Extract conservative invoice/receipt rows while retaining source-line evidence."""
+    """Extract conservative invoice/receipt rows and attach clear wrapped descriptions."""
     headers = ["description", "quantity", "unit_price", "amount"]
     rows: list[list[str]] = []
     evidence: list[str] = []
@@ -72,23 +72,37 @@ def _line_items(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]
 
     def is_excluded(value: str) -> bool:
         return any(
-            re.search(rf"(?<!\w){re.escape(term)}(?!\w)", value)
+            re.search(rf"(?<!\\w){re.escape(term)}(?!\\w)", value)
             for term in excluded
         )
 
-    money = r"(?:[$₹€£]\s*)?\d[\d,]*(?:\.\d{1,2})?"
+    def is_wrapped_description(value: str) -> bool:
+        # Be deliberately conservative: only attach a lowercase text continuation
+        # to the immediately preceding item. Numeric, labelled, and summary lines
+        # must never be absorbed into a product description.
+        return (
+            value[:1].islower()
+            and bool(re.search(r"[A-Za-z]{3}", value))
+            and not re.search(r"\\d|[$₹€£:#]", value)
+            and not is_excluded(value.casefold())
+            and not re.search(r"\\b(?:qty|quantity|unit price|amount|subtotal|grand total)\\b", value, re.IGNORECASE)
+        )
+
+    money = r"(?:[$₹€£]\\s*)?\\d[\\d,]*(?:\\.\\d{1,2})?"
     quantity_first = re.compile(
-        rf"^(?P<qty>\d{{1,3}})[.\s:-]+(?P<description>.+?)\s+(?P<unit>{money})(?:\s+(?P<amount>{money}))?$"
+        rf"^(?P<qty>\\d{{1,3}})[.\\s:-]+(?P<description>.+?)\\s+(?P<unit>{money})(?:\\s+(?P<amount>{money}))?$"
     )
     description_first = re.compile(
-        rf"^(?P<description>.+?)\s+(?P<qty>\d{{1,3}})\s*(?:x|@)?\s+(?P<unit>{money})(?:\s+(?P<amount>{money}))?$",
+        rf"^(?P<description>.+?)\\s+(?P<qty>\\d{{1,3}})\\s*(?:x|@)?\\s+(?P<unit>{money})(?:\\s+(?P<amount>{money}))?$",
         re.IGNORECASE,
     )
 
     for line in lines:
         raw = line.strip()
         normalized = raw.casefold()
-        if not raw or is_excluded(normalized):
+        if not raw:
+            continue
+        if is_excluded(normalized):
             continue
         match = quantity_first.match(raw)
         if match:
@@ -101,6 +115,9 @@ def _line_items(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]
         else:
             match = description_first.match(raw)
             if not match:
+                if rows and is_wrapped_description(raw):
+                    rows[-1][0] = re.sub(r"\\s+", " ", f"{rows[-1][0]} {raw}").strip()
+                    evidence[-1] = f"{evidence[-1]}\\n{raw}"
                 continue
             description = match.group("description")
             quantity = match.group("qty")
@@ -109,10 +126,10 @@ def _line_items(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]
             if not match.group("amount"):
                 unit_price = ""
 
-        item_text = re.sub(r"\s+", " ", description).strip(" .|:-_*")
+        item_text = re.sub(r"\\s+", " ", description).strip(" .|:-_*")
         if not item_text or not re.search(r"[A-Za-z]{2}", item_text):
             continue
-        clean = lambda value: re.sub(r"\s+", "", value).strip("$₹€£")
+        clean = lambda value: re.sub(r"\\s+", "", value).strip("$₹€£")
         row = [item_text, quantity, clean(unit_price), clean(amount)]
         normalized_description = re.sub(r"[^a-z0-9]+", " ", item_text.casefold()).strip()
         key = (normalized_description, quantity.casefold())
