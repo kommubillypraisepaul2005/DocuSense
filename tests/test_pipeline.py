@@ -102,6 +102,11 @@ class ExtractorTests(unittest.TestCase):
             "1 Returned Coffee 3.00 -3.00",
             "Returned Tea 2 x 2.50 (5.00)",
         ])
+        _, purchased_rows, _ = _line_items([
+            "1 Coffee 3.00 -3.00",
+            "1 Returned Juice 4.00 4.00",
+        ])
+        self.assertEqual(purchased_rows, [])
 
     def test_line_item_exclusions_use_word_boundaries(self):
         _, rows, evidence = _line_items([
