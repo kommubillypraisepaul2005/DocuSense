@@ -64,58 +64,73 @@ def _evidenced(value: str, line: str) -> dict[str, Any]:
 
 
 def _line_items(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]]:
+    """Extract conservative invoice/receipt rows while retaining source-line evidence."""
     headers = ["description", "quantity", "unit_price", "amount"]
     rows: list[list[str]] = []
     evidence: list[str] = []
     excluded = ("subtotal", "tax", "total", "discount", "cashier", "table", "check", "date", "change", "balance", "only", "visit", "ref num")
+
+    def is_excluded(value: str) -> bool:
+        return any(
+            re.search(rf"(?<!\w){re.escape(term)}(?!\w)", value)
+            for term in excluded
+        )
+
+    money = r"(?:[$₹€£]\s*)?\d[\d,]*(?:\.\d{1,2})?"
+    quantity_first = re.compile(
+        rf"^(?P<qty>\d{{1,3}})[.\s:-]+(?P<description>.+?)\s+(?P<unit>{money})(?:\s+(?P<amount>{money}))?$"
+    )
+    description_first = re.compile(
+        rf"^(?P<description>.+?)\s+(?P<qty>\d{{1,3}})\s*(?:x|@)?\s+(?P<unit>{money})(?:\s+(?P<amount>{money}))?$",
+        re.IGNORECASE,
+    )
+
     for line in lines:
         raw = line.strip()
         normalized = raw.casefold()
-        if not raw or any(term in normalized for term in excluded):
+        if not raw or is_excluded(normalized):
             continue
-        amounts = list(MONEY.finditer(raw))
-        if not amounts:
-            continue
-        # Item rows have either a quantity and one extended amount or a
-        # quantity, unit price, and extended amount. Never infer missing prices.
-        prefix = raw[:amounts[-1].start()].strip(" .|:-")
-        quantity_match = re.match(r"^(\d+)[.\s:-]+(.+)$", prefix)
-        if not quantity_match:
-            continue
-        quantity, item_text = quantity_match.groups()
-        item_amounts = [match for match in amounts if match.start() >= quantity_match.end(1)]
-        if not item_amounts:
-            continue
-        item_text = re.sub(r"^[.\-_*\s]+|[.\-_*\s]+$", "", item_text).strip()
+        match = quantity_first.match(raw)
+        if match:
+            description = match.group("description")
+            quantity = match.group("qty")
+            unit_price = match.group("unit")
+            amount = match.group("amount") or unit_price
+            if not match.group("amount"):
+                unit_price = ""
+        else:
+            match = description_first.match(raw)
+            if not match:
+                continue
+            description = match.group("description")
+            quantity = match.group("qty")
+            unit_price = match.group("unit")
+            amount = match.group("amount") or unit_price
+            if not match.group("amount"):
+                unit_price = ""
+
+        item_text = re.sub(r"\s+", " ", description).strip(" .|:-_*")
         if not item_text or not re.search(r"[A-Za-z]{2}", item_text):
             continue
-        if len(item_amounts) >= 2:
-            unit_price = item_amounts[-2].group(0).replace(" ", "").strip("$₹€£")
-            amount = item_amounts[-1].group(0).replace(" ", "").strip("$₹€£")
-            # The amount immediately before the final total must be after the
-            # item description, avoiding accidental capture of quantity text.
-            item_end = item_amounts[-2].start()
-            item_text = re.sub(r"\s+", " ", raw[quantity_match.end(1):item_end]).strip(" .|:-")
-        else:
-            unit_price = ""
-            amount = item_amounts[-1].group(0).replace(" ", "").strip("$₹€£")
-        row = [item_text, quantity, unit_price, amount]
+        clean = lambda value: re.sub(r"\s+", "", value).strip("$₹€£")
+        row = [item_text, quantity, clean(unit_price), clean(amount)]
         normalized_description = re.sub(r"[^a-z0-9]+", " ", item_text.casefold()).strip()
         key = (normalized_description, quantity.casefold())
-        prior = next((i for i, existing in enumerate(rows) if (re.sub(r"[^a-z0-9]+", " ", existing[0].casefold()).strip(), existing[1].casefold()) == key), None)
+        prior = next(
+            (i for i, existing in enumerate(rows)
+             if (re.sub(r"[^a-z0-9]+", " ", existing[0].casefold()).strip(), existing[1].casefold()) == key),
+            None,
+        )
         if prior is None:
             rows.append(row)
             evidence.append(raw)
         else:
-            current_decimal = re.search(r"\.(\d+)$", rows[prior][3])
-            new_decimal = re.search(r"\.(\d+)$", amount)
-            current_quality = (bool(rows[prior][2]), len(current_decimal.group(1)) if current_decimal else 0, len(rows[prior][0]))
-            new_quality = (bool(unit_price), len(new_decimal.group(1)) if new_decimal else 0, len(item_text))
+            current_quality = (bool(rows[prior][2]), len(rows[prior][3]), len(rows[prior][0]))
+            new_quality = (bool(row[2]), len(row[3]), len(row[0]))
             if new_quality > current_quality:
                 rows[prior] = row
                 evidence[prior] = raw
     return headers, rows, evidence
-
 
 def _tax_rows(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]]:
     headers = ["tax_name", "rate", "amount"]
