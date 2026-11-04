@@ -314,7 +314,7 @@ def validate_extraction(extraction: dict[str, Any] | None, segments: list[dict[s
         field_type = str(spec.get("type", "") if isinstance(spec, dict) else spec).lower()
         required = not isinstance(spec, dict) or spec.get("required", True)
         if required and field_type != "table" and (name not in fields or _field_parts(fields.get(name))[0] in (None, "")):
-            grounded[name] = {"value": None, "evidence": None, "source": None, "confidence": 0.0, "grounded": False}
+            grounded[name] = {"value": None, "evidence": None, "source": None, "confidence": 0.0, "grounded": False, "review_status": "missing", "review_reason": "Requested field is missing."}
             reasons.append(f"Requested field '{name}' is missing.")
     for name, raw in fields.items():
         value, evidence, page = _field_parts(raw)
@@ -336,7 +336,24 @@ def validate_extraction(extraction: dict[str, Any] | None, segments: list[dict[s
                 if match:
                     break
         score = 1.0 if match and match.get("bbox") else (0.9 if match else (0.35 if evidence else 0.1))
-        grounded[name] = {"value": value, "evidence": match_quote if match else evidence, "source": match, "confidence": score, "grounded": bool(match)}
+        if value in (None, ""):
+            review_status = "missing"
+            review_reason = "Field is empty or missing."
+        elif match:
+            review_status = "grounded"
+            review_reason = None
+        else:
+            review_status = "needs_review"
+            review_reason = "Field does not have an exact source quote match."
+        grounded[name] = {
+            "value": value,
+            "evidence": match_quote if match else evidence,
+            "source": match,
+            "confidence": score,
+            "grounded": bool(match),
+            "review_status": review_status,
+            "review_reason": review_reason,
+        }
         if value not in (None, "") and not match:
             reasons.append(f"Field '{name}' does not have an exact source quote match.")
 
@@ -388,6 +405,11 @@ def validate_extraction(extraction: dict[str, Any] | None, segments: list[dict[s
             page = None
         grounded_rows = 0
         row_sources = []
+        conflicted_row_indexes = {
+            row_index
+            for conflict in table.get("row_conflicts", []) if isinstance(conflict, dict)
+            for row_index in conflict.get("row_indexes", []) if isinstance(row_index, int)
+        }
         for row_index, row in enumerate(rows):
             cells = [str(cell).strip() for cell in row if cell is not None and str(cell).strip()] if isinstance(row, list) else []
             quote = str(quotes[row_index]).strip() if row_index < len(quotes) and quotes[row_index] else ""
@@ -431,15 +453,41 @@ def validate_extraction(extraction: dict[str, Any] | None, segments: list[dict[s
             variants_agree = not variant_support or all(variant_support)
             if row_index < len(provenances) and provenances[row_index] == "document_parser" and quote:
                 match = {"segment_index": segment.get("index"), "label": segment.get("label"), "bbox": None, "region_text": quote, "method": "document_parser"}
-            row_grounded = bool(match and row_width_ok and grade_values_ok and variants_agree)
+            row_grounded = bool(match and row_width_ok and grade_values_ok and variants_agree and row_index not in conflicted_row_indexes)
             if row_grounded:
                 grounded_rows += 1
+                row_review_status = "grounded"
+                row_review_reason = None
             else:
-                detail = "conflicting OCR layouts or no exact source quote match"
-                if not grade_values_ok:
+                if not cells:
+                    detail = "empty row"
+                    row_review_status = "missing"
+                elif row_index in conflicted_row_indexes:
+                    detail = "conflicting table row readings"
+                    row_review_status = "needs_review"
+                elif not grade_values_ok:
                     detail = "invalid or missing grade value"
+                    row_review_status = "needs_review"
+                elif not row_width_ok:
+                    detail = "row width does not match the table headers"
+                    row_review_status = "needs_review"
+                elif not variants_agree:
+                    detail = "conflicting OCR layouts"
+                    row_review_status = "needs_review"
+                else:
+                    detail = "no exact source quote match"
+                    row_review_status = "needs_review"
+                row_review_reason = detail
                 reasons.append(f"Table '{table.get('name', table_index + 1)}' row {row_index + 1} has {detail}.")
-            row_sources.append({"row": row_index + 1, "grounded": row_grounded, "evidence": match.get("region_text") if match else quote, "source": match, "ocr_variants_agree": variants_agree})
+            row_sources.append({
+                "row": row_index + 1,
+                "grounded": row_grounded,
+                "review_status": row_review_status,
+                "review_reason": row_review_reason,
+                "evidence": match.get("region_text") if match else quote,
+                "source": match,
+                "ocr_variants_agree": variants_agree,
+            })
         if len(quotes) != len(rows):
             reasons.append(f"Table '{table.get('name', table_index + 1)}' has a different number of evidence quotes and rows.")
         source_codes: set[str] = set()
