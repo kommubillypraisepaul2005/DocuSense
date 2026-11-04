@@ -6,3 +6,10 @@
 .profile-note{margin:0 0 12px;color:#75888d;font-size:11px;line-height:1.55}
 
  .local-pill.offline{border-color:#f1c9c9;background:#fff7f7;color:#9d4145}.local-pill.offline .status-dot{background:#cf5e62;box-shadow:0 0 0 3px #fae8e8}
+
+.field-status{display:inline-flex;align-items:center;width:max-content;max-width:100%;margin-top:7px;padding:3px 7px;border-radius:999px;font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
+.field-status.grounded{background:#e8f4ee;color:#286b4b}
+.field-status.needs_review{background:#fff2dc;color:#8b5c18}
+.field-status.missing{background:#fce9e8;color:#9b4141}
+.result-table tr.ungrounded{background:#fffaf1}
+.result-table tr.ungrounded td{color:#795c31}
