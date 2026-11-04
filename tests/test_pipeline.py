@@ -4,7 +4,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from app.baselines import _adjustment_rows, _line_items, extract_rules
+from app.baselines import _adjustment_rows, _line_items, _tax_rows, extract_rules
 from app.extractors import extract_file
 from app.models import _normalize_extraction, _response_json_schema
 from app.processor import _ocr_conflicts
