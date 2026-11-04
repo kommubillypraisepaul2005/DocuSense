@@ -388,6 +388,39 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(result["review_required"])
         self.assertFalse(result["grounded_fields"]["total"]["grounded"])
 
+    def test_field_review_states_distinguish_grounded_missing_and_unmatched(self):
+        segments = [{"index": 1, "text": "Invoice number INV-100", "regions": []}]
+        extraction = {"fields": {
+            "invoice_number": {"value": "INV-100", "evidence": "Invoice number INV-100"},
+            "vendor": {"value": "Unknown Shop", "evidence": "Vendor: Unknown Shop"},
+        }}
+        result = validate_extraction(extraction, segments, {"fields": {
+            "invoice_number": {"type": "string"},
+            "vendor": {"type": "string"},
+            "date": {"type": "date"},
+        }})
+        self.assertEqual(result["grounded_fields"]["invoice_number"]["review_status"], "grounded")
+        self.assertIsNone(result["grounded_fields"]["invoice_number"]["review_reason"])
+        self.assertEqual(result["grounded_fields"]["vendor"]["review_status"], "needs_review")
+        self.assertTrue(result["grounded_fields"]["vendor"]["review_reason"])
+        self.assertEqual(result["grounded_fields"]["date"]["review_status"], "missing")
+        self.assertTrue(result["grounded_fields"]["date"]["review_reason"])
+
+    def test_table_row_conflicts_are_explicitly_marked_for_review(self):
+        segments = [{"index": 1, "text": "Tea 10.00", "regions": []}]
+        extraction = {"tables": [{
+            "name": "line_items",
+            "headers": ["description", "amount"],
+            "rows": [["Tea", "10.00"]],
+            "row_evidence": ["Tea 10.00"],
+            "row_conflicts": [{"row_indexes": [0, 0]}],
+        }]}
+        result = validate_extraction(extraction, segments)
+        row = result["grounded_tables"][0]["rows"][0]
+        self.assertFalse(row["grounded"])
+        self.assertEqual(row["review_status"], "needs_review")
+        self.assertIn("conflicting", row["review_reason"])
+
     def test_ocr_variants_keep_conflicts_for_review(self):
         segments = [{
             "index": 2,
