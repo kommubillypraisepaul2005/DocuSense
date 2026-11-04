@@ -498,6 +498,66 @@ class ModelNormalizationTests(unittest.TestCase):
         self.assertEqual(result["tables"], ["line_items_source"])
 
 
+    def test_rule_supplement_disambiguates_repeated_item_keys_by_printed_amount(self):
+        extraction = {
+            "fields": {},
+            "tables": [{
+                "name": "line_items",
+                "headers": ["description", "quantity", "unit_price", "amount"],
+                "rows": [["Tea", "1", "5.00", "5.00"], ["Tea", "1", "10.00", "10.00"]],
+                "row_evidence": ["Tea 1 5.00 5.00", "Tea 1 10.00 10.00"],
+            }],
+        }
+        rule_extraction = {
+            "fields": {},
+            "tables": [{
+                "name": "line_items",
+                "headers": ["description", "quantity", "unit_price", "amount"],
+                "rows": [["Tea", "1", "10.00", "10.00"], ["Tea", "1", "5.00", "5.00"]],
+                "row_evidence": ["Tea 1 10.00 10.00", "Tea 1 5.00 5.00"],
+                "row_provenance": ["ocr_rules", "ocr_rules"],
+            }],
+        }
+
+        result = merge_rule_supplements(extraction, rule_extraction)
+
+        self.assertEqual(extraction["tables"][0]["rows"], [
+            ["Tea", "1", "5.00", "5.00"],
+            ["Tea", "1", "10.00", "10.00"],
+        ])
+        self.assertEqual(result["disagreements"], [])
+        self.assertEqual(len(extraction["tables"][0]["rows"]), 2)
+
+    def test_rule_supplement_preserves_ambiguous_repeated_item_key_separately(self):
+        extraction = {
+            "fields": {},
+            "tables": [{
+                "name": "line_items",
+                "headers": ["description", "quantity", "unit_price", "amount"],
+                "rows": [["Tea", "1", "5.00", "5.00"], ["Tea", "1", "10.00", "10.00"]],
+                "row_evidence": ["Tea 1 5.00 5.00", "Tea 1 10.00 10.00"],
+            }],
+        }
+        rule_extraction = {
+            "fields": {},
+            "tables": [{
+                "name": "line_items",
+                "headers": ["description", "quantity", "unit_price", "amount"],
+                "rows": [["Tea", "1", "", "15.00"]],
+                "row_evidence": ["Tea 1 15.00"],
+                "row_provenance": ["ocr_rules"],
+            }],
+        }
+
+        result = merge_rule_supplements(extraction, rule_extraction)
+
+        self.assertEqual(len(extraction["tables"][0]["rows"]), 3)
+        self.assertEqual(extraction["tables"][0]["rows"][-1], ["Tea", "1", "", "15.00"])
+        self.assertEqual(extraction["tables"][0]["row_provenance"][-1], "ocr_rules")
+        self.assertEqual(len(result["disagreements"]), 1)
+        self.assertIn("ambiguous repeated row key", result["disagreements"][0])
+
+
 class ModelRetryTests(unittest.IsolatedAsyncioTestCase):
     async def test_malformed_json_gets_one_repair_attempt(self):
         from app.models import extract_with_ollama
