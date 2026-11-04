@@ -515,6 +515,61 @@ def validate_extraction(extraction: dict[str, Any] | None, segments: list[dict[s
     elif tax is not None and tax_table_seen and tax_table_complete and abs(tax - tax_table_sum) > Decimal("0.02"):
         reasons.append("The printed tax total disagrees with the sum of the individual tax rows; confirm it manually.")
         checks.append({"name": "tax_rows_sum_equals_tax_field", "passed": False, "expected": float(tax_table_sum), "actual": float(tax)})
+    # Validate printed tax-rate arithmetic only when the taxable base is
+    # explicitly present and source-grounded. A generic subtotal is not a
+    # substitute for a taxable base.
+    tax_rate_rows: list[tuple[str, Decimal, Decimal, Decimal | None, bool]] = []
+    for table in tables:
+        if not isinstance(table, dict) or "tax" not in str(table.get("name", "")).casefold():
+            continue
+        headers = [_column_key(str(header)) for header in table.get("headers", [])]
+        rate_index = next((i for i, header in enumerate(headers) if header in {"rate", "tax_rate", "percentage"}), None)
+        amount_index = next((i for i, header in enumerate(headers) if header in {"amount", "tax_amount", "total"}), None)
+        base_index = next((i for i, header in enumerate(headers) if header in {"taxable_base", "taxable_amount", "tax_base"}), None)
+        if rate_index is None or amount_index is None:
+            continue
+        table_grounding = next((item for item in grounded_tables if item.get("name") == table.get("name")), None)
+        rows = table.get("rows") if isinstance(table.get("rows"), list) else []
+        for row_number, row in enumerate(rows, start=1):
+            if not isinstance(row, list) or max(rate_index, amount_index) >= len(row):
+                continue
+            rate_text = str(row[rate_index] or "").strip()
+            if not rate_text:
+                continue
+            rate_match = re.fullmatch(r"\\s*(\\d+(?:\\.\\d+)?)\\s*%?\\s*", rate_text)
+            amount_value = _money(row[amount_index])
+            base_value = _money(row[base_index]) if base_index is not None and len(row) > base_index else None
+            base_grounded = bool(base_index is not None and table_grounding and row_number <= len(table_grounding.get("rows", [])) and table_grounding["rows"][row_number - 1].get("grounded"))
+            if base_index is None:
+                base_field = grounded.get("taxable_base") or grounded.get("taxable_amount")
+                if base_field and base_field.get("grounded"):
+                    base_value = _money(base_field.get("value"))
+                    base_grounded = base_value is not None
+            if not rate_match or amount_value is None:
+                tax_rate_rows.append((f"tax row {row_number}", Decimal("0"), amount_value or Decimal("0"), None, False))
+                continue
+            rate_value = Decimal(rate_match.group(1))
+            tax_rate_rows.append((f"tax row {row_number}", rate_value, amount_value, base_value, base_grounded))
+
+    if tax_rate_rows:
+        complete_rate_check = True
+        mismatches = []
+        for label, rate_value, amount_value, base_value, base_grounded in tax_rate_rows:
+            if base_value is None or not base_grounded or rate_value <= 0:
+                complete_rate_check = False
+                reasons.append(f"{label} has a printed tax rate but no explicit, grounded taxable base; confirm it manually.")
+                continue
+            expected_amount = (base_value * rate_value / Decimal("100")).quantize(Decimal("0.01"))
+            if abs(expected_amount - amount_value) > Decimal("0.02"):
+                mismatches.append({"row": label, "expected": float(expected_amount), "actual": float(amount_value)})
+        if complete_rate_check:
+            passed = not mismatches
+            checks.append({"name": "tax_rate_amount_matches_taxable_base", "passed": passed, "mismatches": mismatches})
+            if not passed:
+                reasons.append("Printed tax amount does not match the explicit taxable base multiplied by its printed rate; confirm the tax calculation manually.")
+        else:
+            checks.append({"name": "tax_rate_amount_matches_taxable_base", "passed": None, "complete": False, "mismatches": mismatches})
+
     adjustment_effect = Decimal("0")
     adjustment_rows_seen = False
     discount_row_seen = False
