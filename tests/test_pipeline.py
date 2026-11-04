@@ -222,6 +222,51 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(checks["line_item_quantity_times_unit_price_equals_amount"]["passed"])
         self.assertTrue(checks["line_items_sum_equals_subtotal"]["passed"])
 
+    def test_tax_rows_recognize_cgst_sgst_and_rates(self):
+        headers, rows, evidence = _tax_rows([
+            "CGST 9% 9.00",
+            "SGST 9% 9.00",
+            "IGST @ 18% 18.00",
+            "Subtotal 100.00",
+        ])
+        self.assertEqual(headers, ["tax_name", "rate", "amount"])
+        self.assertEqual(rows, [
+            ["CGST", "9%", "9.00"],
+            ["SGST", "9%", "9.00"],
+            ["IGST", "18%", "18.00"],
+        ])
+        self.assertEqual(evidence, ["CGST 9% 9.00", "SGST 9% 9.00", "IGST @ 18% 18.00"])
+
+    def test_invoice_arithmetic_sums_multiple_printed_tax_rows(self):
+        segments = [{"index": 1, "text": "Subtotal 100.00 CGST 9% 9.00 SGST 9% 9.00 Total 118.00", "regions": []}]
+        extraction = {"fields": {
+            "subtotal": {"value": "100.00", "evidence": "Subtotal 100.00"},
+            "total": {"value": "118.00", "evidence": "Total 118.00"},
+        }, "tables": [{
+            "name": "taxes", "headers": ["tax_name", "rate", "amount"],
+            "rows": [["CGST", "9%", "9.00"], ["SGST", "9%", "9.00"]],
+            "row_evidence": ["CGST 9% 9.00", "SGST 9% 9.00"],
+        }]}
+        result = validate_extraction(extraction, segments)
+        checks = {item["name"]: item for item in result["checks"]}
+        self.assertTrue(checks["subtotal_plus_tax_equals_total"]["passed"])
+        self.assertFalse(result["review_required"])
+
+    def test_tax_inclusive_invoice_is_not_double_counted(self):
+        segments = [{"index": 1, "text": "Tax inclusive prices. Subtotal 118.00 GST 18% 18.00 Total 118.00", "regions": []}]
+        extraction = {"fields": {
+            "subtotal": {"value": "118.00", "evidence": "Subtotal 118.00"},
+            "total": {"value": "118.00", "evidence": "Total 118.00"},
+        }, "tables": [{
+            "name": "taxes", "headers": ["tax_name", "rate", "amount"],
+            "rows": [["GST", "18%", "18.00"]], "row_evidence": ["GST 18% 18.00"],
+        }]}
+        result = validate_extraction(extraction, segments)
+        checks = {item["name"]: item for item in result["checks"]}
+        self.assertIsNone(checks["tax_inclusive_total_requires_manual_review"]["passed"])
+        self.assertTrue(result["review_required"])
+        self.assertNotIn("subtotal_plus_tax_equals_total", checks)
+
     def test_invoice_total_includes_discount_adjustment_once(self):
         segments = [{"index": 1, "text": "Subtotal 100.00 Tax 10.00 Discount 5.00 Total 105.00", "regions": [{"text": "discount Discount 5.00", "bbox": [0, 0, 1, 1]}]}]
         extraction = {"fields": {
