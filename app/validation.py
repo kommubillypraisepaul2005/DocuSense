@@ -487,12 +487,71 @@ def validate_extraction(extraction: dict[str, Any] | None, segments: list[dict[s
     subtotal = _money(normalized.get("subtotal"))
     tax = _money(normalized.get("tax") or normalized.get("tax_amount"))
     total = _money(normalized.get("total") or normalized.get("invoice_total"))
+    adjustment_effect = Decimal("0")
+    adjustment_rows_seen = False
+    discount_row_seen = False
+    adjustment_data_complete = True
+    adjustment_table_tokens = ("adjust", "discount", "fee", "return", "refund")
+    for table in tables:
+        if not isinstance(table, dict):
+            continue
+        headers = table.get("headers") if isinstance(table.get("headers"), list) else []
+        normalized_headers = [_column_key(str(header)) for header in headers]
+        table_name = str(table.get("name", "")).casefold()
+        is_adjustment_table = (
+            "adjustment_type" in normalized_headers
+            or any(token in table_name for token in adjustment_table_tokens)
+        )
+        if not is_adjustment_table:
+            continue
+        type_index = next((i for i, header in enumerate(normalized_headers) if header in {"adjustment_type", "type", "category"}), None)
+        amount_index = next((i for i, header in enumerate(normalized_headers) if header in {"amount", "total", "line_total"}), None)
+        rows = table.get("rows") if isinstance(table.get("rows"), list) else []
+        for row_number, row in enumerate(rows, start=1):
+            adjustment_rows_seen = True
+            if not isinstance(row, list) or type_index is None or amount_index is None or max(type_index, amount_index) >= len(row):
+                adjustment_data_complete = False
+                reasons.append(f"Adjustment table '{table.get('name', 'adjustments')}' row {row_number} has an unreadable structure; confirm it manually.")
+                continue
+            kind = str(row[type_index] or "").strip().casefold()
+            if kind == "discount":
+                discount_row_seen = True
+            amount = _money(row[amount_index])
+            if amount is None:
+                adjustment_data_complete = False
+                reasons.append(f"Adjustment table '{table.get('name', 'adjustments')}' row {row_number} has an unreadable amount; confirm it manually.")
+                continue
+            if kind == "discount":
+                adjustment_effect -= abs(amount)
+            elif kind in {"return", "refund", "credit"}:
+                adjustment_effect += amount
+            elif kind in {"fee", "surcharge", "service_charge", "delivery", "shipping", "tip", "gratuity", "other", "deposit", "rounding"}:
+                adjustment_effect += amount
+            else:
+                adjustment_data_complete = False
+                reasons.append(f"Adjustment table '{table.get('name', 'adjustments')}' row {row_number} has unsupported type '{kind or 'blank'}'; confirm it manually.")
+
+    scalar_discount = _money(normalized.get("discount"))
+    if not discount_row_seen and scalar_discount is not None:
+        adjustment_rows_seen = True
+        adjustment_effect -= abs(scalar_discount)
+
     if subtotal is not None and tax is not None and total is not None:
-        expected_total = subtotal + tax
-        passed = abs(expected_total - total) <= Decimal("0.02")
-        checks.append({"name": "subtotal_plus_tax_equals_total", "passed": passed, "expected": float(expected_total.quantize(Decimal("0.01"))), "actual": float(total.quantize(Decimal("0.01")))})
-        if not passed:
-            reasons.append("Invoice arithmetic check failed: subtotal plus tax does not equal total.")
+        if adjustment_data_complete:
+            expected_total = subtotal + tax + adjustment_effect
+            passed = abs(expected_total - total) <= Decimal("0.02")
+            check_name = "subtotal_tax_and_adjustments_equal_total" if adjustment_rows_seen else "subtotal_plus_tax_equals_total"
+            checks.append({"name": check_name, "passed": passed, "expected": float(expected_total.quantize(Decimal("0.01"))), "actual": float(total.quantize(Decimal("0.01")))})
+            if not passed:
+                reasons.append("Invoice arithmetic check failed: subtotal, tax, and supported adjustments do not equal total.")
+        elif adjustment_rows_seen:
+            checks.append({"name": "subtotal_tax_and_adjustments_equal_total", "passed": None, "complete": False, "actual": float(total.quantize(Decimal("0.01")))})
+        else:
+            expected_total = subtotal + tax
+            passed = abs(expected_total - total) <= Decimal("0.02")
+            checks.append({"name": "subtotal_plus_tax_equals_total", "passed": passed, "expected": float(expected_total.quantize(Decimal("0.01"))), "actual": float(total.quantize(Decimal("0.01")))})
+            if not passed:
+                reasons.append("Invoice arithmetic check failed: subtotal plus tax does not equal total.")
 
     line_items = normalized.get("line_items") or normalized.get("items")
     if isinstance(line_items, list):
