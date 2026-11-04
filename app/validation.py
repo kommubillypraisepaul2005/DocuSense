@@ -536,7 +536,7 @@ def validate_extraction(extraction: dict[str, Any] | None, segments: list[dict[s
             rate_text = str(row[rate_index] or "").strip()
             if not rate_text:
                 continue
-            rate_match = re.fullmatch(r"\\s*(\\d+(?:\\.\\d+)?)\\s*%?\\s*", rate_text)
+            rate_match = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*%?\s*", rate_text)
             amount_value = _money(row[amount_index])
             base_value = _money(row[base_index]) if base_index is not None and len(row) > base_index else None
             base_grounded = bool(base_index is not None and table_grounding and row_number <= len(table_grounding.get("rows", [])) and table_grounding["rows"][row_number - 1].get("grounded"))
