@@ -133,24 +133,28 @@ function renderFields(fields, validation) {
   for (const [name, field] of Object.entries(fields || {})) {
     if (field && typeof field === 'object' && Array.isArray(field.rows)) continue;
     const card = document.createElement('article');
-    const grounded = validation?.grounded_fields?.[name]?.grounded;
-    card.className = `field-card${grounded === false ? ' ungrounded' : ''}`;
+    const fieldValidation = validation?.grounded_fields?.[name];
+    const reviewStatus = fieldValidation?.review_status || (fieldValidation?.grounded === false ? 'needs_review' : 'grounded');
+    card.className = `field-card${reviewStatus !== 'grounded' ? ' ungrounded' : ''}`;
     addText(card, 'div', name.replaceAll('_', ' '), 'field-name');
+    addText(card, 'span', reviewStatus.replaceAll('_', ' '), `field-status ${reviewStatus}`);
     addText(card, 'div', fieldValue(field), 'field-value');
     const evidence = field && typeof field === 'object' ? field.evidence || field.quote : '';
     if (evidence) addText(card, 'div', `Evidence: ${evidence}`, 'field-evidence');
+    if (fieldValidation?.review_reason) addText(card, 'div', fieldValidation.review_reason, 'field-evidence missing-evidence');
     grid.append(card);
   }
   if (!grid.children.length) addText(grid, 'p', 'No scalar fields were returned. Open the JSON below for the full response.', 'muted');
 }
 
-function renderTables(tables) {
+function renderTables(tables, validation) {
   const host = document.querySelector('#result-tables');
   host.replaceChildren();
   for (const [index, table] of (tables || []).entries()) {
     if (!table || typeof table !== 'object') continue;
     const headers = Array.isArray(table.headers) ? table.headers : [];
     const rows = Array.isArray(table.rows) ? table.rows : [];
+    const tableValidation = validation?.grounded_tables?.[index];
     const wrap = document.createElement('section');
     wrap.className = 'table-wrap';
     addText(wrap, 'h3', table.name || `Table ${index + 1}`, 'table-title');
@@ -159,20 +163,26 @@ function renderTables(tables) {
     const head = document.createElement('thead');
     const headRow = document.createElement('tr');
     for (const header of headers) addText(headRow, 'th', String(header));
+    addText(headRow, 'th', 'Review status');
     head.append(headRow);
     tableNode.append(head);
     const body = document.createElement('tbody');
-    for (const row of rows) {
+    for (const [rowIndex, row] of rows.entries()) {
       const tr = document.createElement('tr');
+      const rowValidation = tableValidation?.rows?.[rowIndex];
+      const rowStatus = rowValidation?.review_status || (rowValidation?.grounded === false ? 'needs_review' : 'grounded');
+      tr.className = rowStatus === 'grounded' ? 'grounded-row' : 'ungrounded';
       for (let i = 0; i < Math.max(headers.length, Array.isArray(row) ? row.length : 0); i++) {
         addText(tr, 'td', fieldValue(Array.isArray(row) ? row[i] : ''));
       }
+      const statusCell = addText(tr, 'td', rowStatus.replaceAll('_', ' '), `field-status ${rowStatus}`);
+      if (rowValidation?.review_reason) statusCell.title = rowValidation.review_reason;
       body.append(tr);
     }
     if (!rows.length) {
       const tr = document.createElement('tr');
       const empty = document.createElement('td');
-      empty.colSpan = Math.max(1, headers.length);
+      empty.colSpan = Math.max(1, headers.length + 1);
       empty.textContent = 'No rows were extracted. Review this table and add any missing rows.';
       empty.className = 'empty-table-message';
       tr.append(empty);
@@ -337,7 +347,7 @@ function renderResult(data, sourceFilename = '', jobId = null) {
   document.querySelector('#edit-result').hidden = !activeResult.jobId;
   document.querySelector('#correction-editor').hidden = true;
   renderFields(extraction.fields, validation);
-  renderTables(extraction.tables);
+  renderTables(extraction.tables, validation);
 
   const segments = Array.isArray(data.segments) ? data.segments : [];
   const ocrReadout = document.querySelector('#ocr-readout');
