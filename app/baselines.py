@@ -160,16 +160,18 @@ def _tax_rows(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]]:
     rows: list[list[str]] = []
     evidence: list[str] = []
     for line in lines:
-        if "tax" not in line.casefold():
+        folded_line = line.casefold()
+        # Recognize common named tax components as well as generic tax labels.
+        if not re.search(r"\b(?:tax|cgst|sgst|igst|utgst|vat|gst)\b", folded_line):
             continue
         amounts = list(MONEY.finditer(line))
         if not amounts:
             continue
         amount = amounts[-1].group(0).replace(" ", "").strip("$₹€£")
         name = line[:amounts[-1].start()].strip(" :.-")
-        rate_match = re.search(r"@\s*(\d+(?:\.\d+)?)\s*%", name)
+        rate_match = re.search(r"(?:@\s*)?(\d+(?:\.\d+)?)\s*%", name)
         rate = rate_match.group(1) + "%" if rate_match else ""
-        name = re.sub(r"@\s*\d+(?:\.\d+)?\s*%", "", name).strip(" :.-")
+        name = re.sub(r"(?:@\s*)?\d+(?:\.\d+)?\s*%", "", name).strip(" :.-")
         rows.append([name, rate, amount])
         evidence.append(line.strip())
     deduped = []
