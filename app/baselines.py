@@ -871,11 +871,12 @@ def merge_rule_supplements(extraction: dict, rule_extraction: dict, schema: dict
             provenance.append("vlm")
         rule_evidence = rule_table.get("row_evidence", [])
         rule_provenance = rule_table.get("row_provenance", [])
+        matched_model_indices: set[int] = set()
         for index, row in enumerate(rule_rows):
             def normalize_cell(value: Any) -> str:
-                text = re.sub(r"\s+", " ", str(value)).strip().casefold()
+                text = re.sub(r"\\s+", " ", str(value)).strip().casefold()
                 try:
-                    return str(Decimal(re.sub(r"[^0-9.+-]", "", text))) if re.search(r"\d", text) else text
+                    return str(Decimal(re.sub(r"[^0-9.+-]", "", text))) if re.search(r"\\d", text) else text
                 except InvalidOperation:
                     return text
             primary_header = next((index for index, header in enumerate(headers) if normalize_header(header) in {"subject_code", "tax_name", "description", "item", "name"}), 0)
@@ -883,7 +884,7 @@ def merge_rule_supplements(extraction: dict, rule_extraction: dict, schema: dict
             rule_key = normalize_cell(row[primary_header]) if primary_header < len(row) else ""
             if quantity_header is not None and quantity_header < len(row):
                 rule_key += "|" + normalize_cell(row[quantity_header])
-            matched_index = None
+            keyed_candidates = []
             for prior_index, prior in enumerate(existing_rows):
                 if not isinstance(prior, list):
                     continue
@@ -891,15 +892,50 @@ def merge_rule_supplements(extraction: dict, rule_extraction: dict, schema: dict
                 if quantity_header is not None and quantity_header < len(prior):
                     prior_key += "|" + normalize_cell(prior[quantity_header])
                 if rule_key and prior_key == rule_key:
-                    matched_index = prior_index
-                    break
+                    keyed_candidates.append(prior_index)
+            available_candidates = [candidate for candidate in keyed_candidates if candidate not in matched_model_indices]
+            matched_index = None
+            ambiguity = False
+            if len(available_candidates) == 1:
+                matched_index = available_candidates[0]
+            elif len(available_candidates) > 1:
+                # Printed unit price/amount can disambiguate repeated description
+                # and quantity keys. Missing or non-unique signatures stay separate.
+                amount_headers = {"unit_price", "price", "amount", "line_total"}
+                comparable = [
+                    column for column, header in enumerate(headers)
+                    if normalize_header(header) in amount_headers
+                    and column < len(row) and str(row[column] or "").strip()
+                ]
+                signature_matches = []
+                if comparable:
+                    for candidate in available_candidates:
+                        prior = existing_rows[candidate]
+                        if all(
+                            column < len(prior)
+                            and str(prior[column] or "").strip()
+                            and normalize_cell(prior[column]) == normalize_cell(row[column])
+                            for column in comparable
+                        ):
+                            signature_matches.append(candidate)
+                if len(signature_matches) == 1:
+                    matched_index = signature_matches[0]
+                else:
+                    ambiguity = True
+            elif keyed_candidates:
+                ambiguity = True
             quote = rule_evidence[index] if index < len(rule_evidence) else ""
             if matched_index is None:
                 existing_rows.append(row)
                 evidence.append(quote)
                 provenance.append(rule_provenance[index] if index < len(rule_provenance) else "ocr_rules")
                 supplemented_tables.append(str(name))
+                if ambiguity:
+                    disagreements.append(
+                        f"Table '{name}' has an ambiguous repeated row key '{rule_key}'; the OCR/rules row was preserved separately for manual review."
+                    )
                 continue
+            matched_model_indices.add(matched_index)
             prior = existing_rows[matched_index]
             was_supplemented = False
             for cell_index, rule_cell in enumerate(row):
