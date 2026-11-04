@@ -255,6 +255,53 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(checks["subtotal_plus_tax_equals_total"]["passed"])
         self.assertFalse(result["review_required"])
 
+    def test_tax_rate_amount_matches_explicit_taxable_base(self):
+        for amount, expected_pass in (("9.00", True), ("9.02", True), ("9.03", False)):
+            with self.subTest(amount=amount):
+                line = f"CGST 9% {amount}"
+                segments = [{"index": 1, "text": f"Taxable value 100.00 {line} Subtotal 100.00 Tax {amount} Total {float(100 + float(amount)):.2f}", "regions": [
+                    {"text": line, "bbox": [0, 0, 1, 1]},
+                ]}]
+                extraction = {"fields": {
+                    "taxable_base": {"value": "100.00", "evidence": "Taxable value 100.00"},
+                    "subtotal": {"value": "100.00", "evidence": "Subtotal 100.00"},
+                    "tax": {"value": amount, "evidence": f"Tax {amount}"},
+                    "total": {"value": f"{100 + float(amount):.2f}", "evidence": f"Total {100 + float(amount):.2f}"},
+                }, "tables": [{
+                    "name": "taxes", "headers": ["tax_name", "rate", "amount"],
+                    "rows": [["CGST", "9%", amount]], "row_evidence": [line],
+                }]}
+                result = validate_extraction(extraction, segments)
+                checks = {item["name"]: item for item in result["checks"]}
+                self.assertEqual(checks["tax_rate_amount_matches_taxable_base"]["passed"], expected_pass)
+                self.assertEqual(result["review_required"], not expected_pass)
+
+    def test_multiple_tax_rates_require_grounded_taxable_base(self):
+        lines = ["CGST 9% 9.00", "SGST 9% 9.00"]
+        segments = [{"index": 1, "text": "Taxable value 100.00 CGST 9% 9.00 SGST 9% 9.00 Subtotal 100.00 Tax 18.00 Total 118.00", "regions": [
+            {"text": lines[0], "bbox": [0, 0, 1, 1]},
+            {"text": lines[1], "bbox": [0, 0.1, 1, 1.1]},
+        ]}]
+        base_fields = {
+            "subtotal": {"value": "100.00", "evidence": "Subtotal 100.00"},
+            "tax": {"value": "18.00", "evidence": "Tax 18.00"},
+            "total": {"value": "118.00", "evidence": "Total 118.00"},
+        }
+        table = {"name": "taxes", "headers": ["tax_name", "rate", "amount"],
+                 "rows": [["CGST", "9%", "9.00"], ["SGST", "9%", "9.00"]],
+                 "row_evidence": lines}
+        missing_base = validate_extraction({"fields": base_fields, "tables": [table]}, segments)
+        missing_checks = {item["name"]: item for item in missing_base["checks"]}
+        self.assertIsNone(missing_checks["tax_rate_amount_matches_taxable_base"]["passed"])
+        self.assertTrue(missing_base["review_required"])
+
+        grounded_fields = dict(base_fields)
+        grounded_fields["taxable_base"] = {"value": "100.00", "evidence": "Taxable value 100.00"}
+        validated = validate_extraction({"fields": grounded_fields, "tables": [table]}, segments)
+        checks = {item["name"]: item for item in validated["checks"]}
+        self.assertTrue(checks["tax_rate_amount_matches_taxable_base"]["passed"])
+        self.assertFalse(validated["review_required"])
+
     def test_tax_inclusive_invoice_is_not_double_counted(self):
         segments = [{"index": 1, "text": "Tax inclusive prices. Subtotal 118.00 GST 18% 18.00 Total 118.00", "regions": []}]
         extraction = {"fields": {
