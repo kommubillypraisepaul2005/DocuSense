@@ -172,6 +172,7 @@ function renderTables(tables, validation) {
       const rowValidation = tableValidation?.rows?.[rowIndex];
       const rowStatus = rowValidation?.review_status || (rowValidation?.grounded === false ? 'needs_review' : 'grounded');
       tr.className = rowStatus === 'grounded' ? 'grounded-row' : 'ungrounded';
+      tr.title = [rowValidation?.review_reason, rowValidation?.evidence].filter(Boolean).join(' · ');
       for (let i = 0; i < Math.max(headers.length, Array.isArray(row) ? row.length : 0); i++) {
         addText(tr, 'td', fieldValue(Array.isArray(row) ? row[i] : ''));
       }
