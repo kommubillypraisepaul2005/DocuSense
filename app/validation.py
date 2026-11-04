@@ -487,6 +487,34 @@ def validate_extraction(extraction: dict[str, Any] | None, segments: list[dict[s
     subtotal = _money(normalized.get("subtotal"))
     tax = _money(normalized.get("tax") or normalized.get("tax_amount"))
     total = _money(normalized.get("total") or normalized.get("invoice_total"))
+    tax_table_rows: list[tuple[str, Decimal]] = []
+    tax_table_seen = False
+    tax_table_complete = True
+    for table in tables:
+        if not isinstance(table, dict) or "tax" not in str(table.get("name", "")).casefold():
+            continue
+        headers = [_column_key(str(header)) for header in table.get("headers", [])]
+        amount_index = next((i for i, header in enumerate(headers) if header in {"amount", "tax_amount", "total"}), None)
+        if amount_index is None:
+            tax_table_seen = True
+            tax_table_complete = False
+            continue
+        for row_number, row in enumerate(table.get("rows", []), start=1):
+            tax_table_seen = True
+            amount = _money(row[amount_index]) if isinstance(row, list) and len(row) > amount_index else None
+            label_index = next((i for i, header in enumerate(headers) if header in {"tax_name", "name", "description", "type"}), None)
+            label = str(row[label_index]) if label_index is not None and isinstance(row, list) and len(row) > label_index else f"tax row {row_number}"
+            if amount is None:
+                tax_table_complete = False
+                reasons.append(f"Tax table row '{label}' has an unreadable amount; confirm it manually.")
+            else:
+                tax_table_rows.append((label, amount))
+    tax_table_sum = sum((amount for _, amount in tax_table_rows), Decimal("0"))
+    if tax is None and tax_table_seen and tax_table_complete:
+        tax = tax_table_sum
+    elif tax is not None and tax_table_seen and tax_table_complete and abs(tax - tax_table_sum) > Decimal("0.02"):
+        reasons.append("The printed tax total disagrees with the sum of the individual tax rows; confirm it manually.")
+        checks.append({"name": "tax_rows_sum_equals_tax_field", "passed": False, "expected": float(tax_table_sum), "actual": float(tax)})
     adjustment_effect = Decimal("0")
     adjustment_rows_seen = False
     discount_row_seen = False
@@ -536,7 +564,14 @@ def validate_extraction(extraction: dict[str, Any] | None, segments: list[dict[s
         adjustment_rows_seen = True
         adjustment_effect -= abs(scalar_discount)
 
-    if subtotal is not None and tax is not None and total is not None:
+    tax_inclusive_text = " ".join(str(segment.get("text", "")) for segment in segments).casefold()
+    tax_inclusive_marker = bool(re.search(r"\b(?:tax[- ]inclusive|inclusive of (?:all )?tax(?:es)?|prices? inclusive of tax)\b", tax_inclusive_text))
+    if tax_inclusive_marker and subtotal is not None and total is not None:
+        checks.append({"name": "tax_inclusive_total_requires_manual_review", "passed": None, "complete": False})
+        reasons.append("The source labels prices or totals as tax-inclusive; the taxable base and whether tax is already included cannot be established safely from the available fields.")
+    elif subtotal is not None and tax is not None and total is not None:
+        if not tax_table_complete:
+            checks.append({"name": "tax_rows_sum_equals_tax_field", "passed": None, "complete": False})
         if adjustment_data_complete:
             expected_total = subtotal + tax + adjustment_effect
             passed = abs(expected_total - total) <= Decimal("0.02")
