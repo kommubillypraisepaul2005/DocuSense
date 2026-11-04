@@ -238,7 +238,10 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual(evidence, ["CGST 9% 9.00", "SGST 9% 9.00", "IGST @ 18% 18.00"])
 
     def test_invoice_arithmetic_sums_multiple_printed_tax_rows(self):
-        segments = [{"index": 1, "text": "Subtotal 100.00 CGST 9% 9.00 SGST 9% 9.00 Total 118.00", "regions": []}]
+        segments = [{"index": 1, "text": "Subtotal 100.00 CGST 9% 9.00 SGST 9% 9.00 Total 118.00", "regions": [
+            {"text": "CGST 9% 9.00", "bbox": [0, 0, 1, 1]},
+            {"text": "SGST 9% 9.00", "bbox": [0, 0.1, 1, 1.1]},
+        ]}]
         extraction = {"fields": {
             "subtotal": {"value": "100.00", "evidence": "Subtotal 100.00"},
             "total": {"value": "118.00", "evidence": "Total 118.00"},
