@@ -4,7 +4,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from app.baselines import _adjustment_rows, _line_items, _tax_rows, extract_rules
+from app.baselines import _adjustment_rows, _line_items, _tax_rows, extract_rules, merge_rule_supplements
 from app.extractors import extract_file
 from app.models import _normalize_extraction, _response_json_schema
 from app.processor import _ocr_conflicts
@@ -439,6 +439,63 @@ class ModelNormalizationTests(unittest.TestCase):
         table = extraction["tables"][0]
         self.assertEqual(table["rows"], [["Tea", "10"], ["Tea", "12"]])
         self.assertEqual(table["row_conflicts"][0]["row_indexes"], [0, 1])
+
+
+    def test_rule_supplement_preserves_model_row_and_reports_amount_conflict(self):
+        extraction = {
+            "fields": {},
+            "tables": [{
+                "name": "line_items",
+                "headers": ["description", "amount"],
+                "rows": [["Tea", "10.00"]],
+                "row_evidence": ["Tea 10.00"],
+            }],
+        }
+        rule_extraction = {
+            "fields": {},
+            "tables": [{
+                "name": "line_items",
+                "headers": ["description", "amount"],
+                "rows": [["Tea", "12.00"]],
+                "row_evidence": ["Tea 12.00"],
+                "row_provenance": ["ocr_rules"],
+            }],
+        }
+
+        result = merge_rule_supplements(extraction, rule_extraction)
+
+        self.assertEqual(extraction["tables"][0]["rows"], [["Tea", "10.00"]])
+        self.assertEqual(len(result["disagreements"]), 1)
+        self.assertIn("conflicting amount values", result["disagreements"][0])
+
+    def test_rule_supplement_keeps_reordered_columns_as_separate_source_table(self):
+        extraction = {
+            "fields": {},
+            "tables": [{
+                "name": "line_items",
+                "headers": ["amount", "description"],
+                "rows": [["10.00", "Tea"]],
+                "row_evidence": ["Tea 10.00"],
+            }],
+        }
+        rule_extraction = {
+            "fields": {},
+            "tables": [{
+                "name": "line_items",
+                "headers": ["description", "amount"],
+                "rows": [["Tea", "10.00"]],
+                "row_evidence": ["Tea 10.00"],
+                "row_provenance": ["ocr_rules"],
+            }],
+        }
+
+        result = merge_rule_supplements(extraction, rule_extraction)
+
+        self.assertEqual(len(extraction["tables"]), 2)
+        self.assertEqual(extraction["tables"][1]["name"], "line_items_source")
+        self.assertEqual(extraction["tables"][1]["headers"], ["description", "amount"])
+        self.assertEqual(extraction["tables"][1]["rows"], [["Tea", "10.00"]])
+        self.assertEqual(result["tables"], ["line_items_source"])
 
 
 class ModelRetryTests(unittest.IsolatedAsyncioTestCase):
