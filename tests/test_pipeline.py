@@ -222,6 +222,71 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(checks["line_item_quantity_times_unit_price_equals_amount"]["passed"])
         self.assertTrue(checks["line_items_sum_equals_subtotal"]["passed"])
 
+    def test_invoice_total_includes_discount_adjustment_once(self):
+        segments = [{"index": 1, "text": "Subtotal 100.00 Tax 10.00 Discount 5.00 Total 105.00", "regions": []}]
+        extraction = {"fields": {
+            "subtotal": {"value": "100.00", "evidence": "Subtotal 100.00"},
+            "tax": {"value": "10.00", "evidence": "Tax 10.00"},
+            "discount": {"value": "5.00", "evidence": "Discount 5.00"},
+            "total": {"value": "105.00", "evidence": "Total 105.00"},
+        }, "tables": [{
+            "name": "adjustments",
+            "headers": ["adjustment_type", "description", "quantity", "unit_price", "amount"],
+            "rows": [["discount", "Discount", "", "", "5.00"]],
+            "row_evidence": ["Discount 5.00"],
+        }]}
+        result = validate_extraction(extraction, segments)
+        checks = {item["name"]: item for item in result["checks"]}
+        self.assertTrue(checks["subtotal_tax_and_adjustments_equal_total"]["passed"])
+        self.assertFalse(result["review_required"])
+
+    def test_invoice_total_adds_fee_adjustment(self):
+        segments = [{"index": 1, "text": "Subtotal 100.00 Tax 10.00 Delivery Fee 3.00 Total 113.00", "regions": []}]
+        extraction = {"fields": {
+            "subtotal": {"value": "100.00", "evidence": "Subtotal 100.00"},
+            "tax": {"value": "10.00", "evidence": "Tax 10.00"},
+            "total": {"value": "113.00", "evidence": "Total 113.00"},
+        }, "tables": [{
+            "name": "adjustments", "headers": ["adjustment_type", "description", "amount"],
+            "rows": [["fee", "Delivery Fee", "3.00"]], "row_evidence": ["Delivery Fee 3.00"],
+        }]}
+        result = validate_extraction(extraction, segments)
+        checks = {item["name"]: item for item in result["checks"]}
+        self.assertTrue(checks["subtotal_tax_and_adjustments_equal_total"]["passed"])
+        self.assertFalse(result["review_required"])
+
+    def test_invoice_total_applies_signed_itemized_return(self):
+        segments = [{"index": 1, "text": "Subtotal 100.00 Tax 10.00 Returned Coffee -5.00 Total 105.00", "regions": []}]
+        extraction = {"fields": {
+            "subtotal": {"value": "100.00", "evidence": "Subtotal 100.00"},
+            "tax": {"value": "10.00", "evidence": "Tax 10.00"},
+            "total": {"value": "105.00", "evidence": "Total 105.00"},
+        }, "tables": [{
+            "name": "adjustments", "headers": ["adjustment_type", "description", "quantity", "unit_price", "amount"],
+            "rows": [["return", "Coffee", "1", "5.00", "-5.00"]], "row_evidence": ["Returned Coffee -5.00"],
+        }]}
+        result = validate_extraction(extraction, segments)
+        checks = {item["name"]: item for item in result["checks"]}
+        self.assertTrue(checks["subtotal_tax_and_adjustments_equal_total"]["passed"])
+        self.assertFalse(result["review_required"])
+
+    def test_unreadable_or_unknown_adjustment_routes_to_review_without_pass(self):
+        for row in (["fee", "Delivery", ""], ["mystery", "Adjustment", "2.00"]):
+            with self.subTest(row=row):
+                segments = [{"index": 1, "text": "Subtotal 100.00 Tax 10.00 Total 112.00", "regions": []}]
+                extraction = {"fields": {
+                    "subtotal": {"value": "100.00", "evidence": "Subtotal 100.00"},
+                    "tax": {"value": "10.00", "evidence": "Tax 10.00"},
+                    "total": {"value": "112.00", "evidence": "Total 112.00"},
+                }, "tables": [{
+                    "name": "adjustments", "headers": ["adjustment_type", "description", "amount"],
+                    "rows": [row], "row_evidence": ["Adjustment row"],
+                }]}
+                result = validate_extraction(extraction, segments)
+                checks = {item["name"]: item for item in result["checks"]}
+                self.assertIsNone(checks["subtotal_tax_and_adjustments_equal_total"]["passed"])
+                self.assertTrue(result["review_required"])
+
     def test_unmatched_field_routes_to_review(self):
         result = validate_extraction({"fields": {"total": {"value": "99", "evidence": "Total: 99"}}}, [{"index": 1, "text": "Total: 10", "regions": []}])
         self.assertTrue(result["review_required"])
