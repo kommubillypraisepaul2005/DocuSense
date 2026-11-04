@@ -223,7 +223,7 @@ class ValidationTests(unittest.TestCase):
         self.assertTrue(checks["line_items_sum_equals_subtotal"]["passed"])
 
     def test_invoice_total_includes_discount_adjustment_once(self):
-        segments = [{"index": 1, "text": "Subtotal 100.00 Tax 10.00 Discount 5.00 Total 105.00", "regions": []}]
+        segments = [{"index": 1, "text": "Subtotal 100.00 Tax 10.00 Discount 5.00 Total 105.00", "regions": [{"text": "discount Discount 5.00", "bbox": [0, 0, 1, 1]}]}]
         extraction = {"fields": {
             "subtotal": {"value": "100.00", "evidence": "Subtotal 100.00"},
             "tax": {"value": "10.00", "evidence": "Tax 10.00"},
@@ -241,7 +241,7 @@ class ValidationTests(unittest.TestCase):
         self.assertFalse(result["review_required"])
 
     def test_invoice_total_adds_fee_adjustment(self):
-        segments = [{"index": 1, "text": "Subtotal 100.00 Tax 10.00 Delivery Fee 3.00 Total 113.00", "regions": []}]
+        segments = [{"index": 1, "text": "Subtotal 100.00 Tax 10.00 Delivery Fee 3.00 Total 113.00", "regions": [{"text": "fee Delivery Fee 3.00", "bbox": [0, 0, 1, 1]}]}]
         extraction = {"fields": {
             "subtotal": {"value": "100.00", "evidence": "Subtotal 100.00"},
             "tax": {"value": "10.00", "evidence": "Tax 10.00"},
@@ -256,7 +256,7 @@ class ValidationTests(unittest.TestCase):
         self.assertFalse(result["review_required"])
 
     def test_invoice_total_applies_signed_itemized_return(self):
-        segments = [{"index": 1, "text": "Subtotal 100.00 Tax 10.00 Returned Coffee -5.00 Total 105.00", "regions": []}]
+        segments = [{"index": 1, "text": "Subtotal 100.00 Tax 10.00 Returned Coffee -5.00 Total 105.00", "regions": [{"text": "return Coffee 1 5.00 -5.00", "bbox": [0, 0, 1, 1]}]}]
         extraction = {"fields": {
             "subtotal": {"value": "100.00", "evidence": "Subtotal 100.00"},
             "tax": {"value": "10.00", "evidence": "Tax 10.00"},
