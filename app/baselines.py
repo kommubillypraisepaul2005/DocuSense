@@ -84,7 +84,7 @@ def _line_items(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]
             return False
         if re.search(r"[=~<>|]", value):
             return False
-        if re.search(r"\\bitem\\s+name\\b", value, re.IGNORECASE):
+        if re.search(r"\bitem\s+name\b", value, re.IGNORECASE):
             return False
         return True
 
@@ -96,11 +96,11 @@ def _line_items(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]
         return (
             value[:1].islower()
             and bool(re.search(r"[A-Za-z]{3}", value))
-            and not re.search(r"\\d|[$₹€£:#]", value)
+            and not re.search(r"\d|[$₹€£:#]", value)
             and not re.search(r"[=~<>|]", value)
             and not any(term in folded for term in promotional_terms)
             and not is_excluded(folded)
-            and not re.search(r"\\b(?:qty|quantity|unit price|amount|subtotal|grand total)\\b", value, re.IGNORECASE)
+            and not re.search(r"\b(?:qty|quantity|unit price|amount|subtotal|grand total)\b", value, re.IGNORECASE)
         )
 
     money = r"(?:[$₹€£]\s*)?\d[\d,]*(?:\.\d{1,2})?"
