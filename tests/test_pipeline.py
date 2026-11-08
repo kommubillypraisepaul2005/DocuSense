@@ -118,6 +118,32 @@ class ExtractorTests(unittest.TestCase):
         self.assertEqual(rows, [["Vegetable soup", "2", "4.00", "8.00"]])
         self.assertEqual(evidence, ["2 Vegetable soup 4.00 8.00"])
 
+    def test_line_items_reject_short_ocr_fragments(self):
+        _, rows, evidence = _line_items([
+            "4 iS an rs rey SS i Op So aS we 23.96",
+            "2 ve Re 2.00",
+            "4 Cheese Burger 5.99 23.96",
+        ])
+        self.assertEqual(rows, [["Cheese Burger", "4", "5.99", "23.96"]])
+        self.assertEqual(evidence, ["4 Cheese Burger 5.99 23.96"])
+
+    def test_line_items_do_not_absorb_ocr_noise_or_footer_text(self):
+        _, rows, evidence = _line_items([
+            "2 Cinnamon Ban 1.00 2.00",
+            "facived == = SOttsCS=~“‘—s~S~s~™~SS",
+            "authentic recipe!",
+            "Visit the Swedish Food Market",
+        ])
+        self.assertEqual(rows, [["Cinnamon Ban", "2", "1.00", "2.00"]])
+        self.assertEqual(evidence, ["2 Cinnamon Ban 1.00 2.00"])
+
+    def test_line_items_reject_targeted_crop_header_contamination(self):
+        _, rows, evidence = _line_items([
+            "2 Cinnamon Bun wove tt sSsSsS~S ows Item Name 1.00 2.00",
+        ])
+        self.assertEqual(rows, [])
+        self.assertEqual(evidence, [])
+
     def test_duplicate_line_items_keep_one_row_and_matching_evidence(self):
         _, rows, evidence = _line_items([
             "2 Coffee 3.5 7",
