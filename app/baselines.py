@@ -76,16 +76,31 @@ def _line_items(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]
             for term in excluded
         )
 
+    def is_plausible_description(value: str) -> bool:
+        # OCR fragments may contain quantities and prices but no recoverable
+        # product name. Reject short-token noise and obvious header contamination.
+        words = re.findall(r"[A-Za-z]+", value)
+        if not words or max(map(len, words)) < 3:
+            return False
+        if re.search(r"[=~<>|]", value):
+            return False
+        if re.search(r"\\bitem\\s+name\\b", value, re.IGNORECASE):
+            return False
+        return True
+
     def is_wrapped_description(value: str) -> bool:
-        # Be deliberately conservative: only attach a lowercase text continuation
-        # to the immediately preceding item. Numeric, labelled, and summary lines
-        # must never be absorbed into a product description.
+        # Only attach a plausible lowercase continuation. Avoid OCR noise and
+        # recognizable promotional/footer copy being absorbed into item names.
+        folded = value.casefold()
+        promotional_terms = ("authentic recipe", "visit the", "food market", "take home", "for only", "today!")
         return (
             value[:1].islower()
             and bool(re.search(r"[A-Za-z]{3}", value))
-            and not re.search(r"\d|[$₹€£:#]", value)
-            and not is_excluded(value.casefold())
-            and not re.search(r"\b(?:qty|quantity|unit price|amount|subtotal|grand total)\b", value, re.IGNORECASE)
+            and not re.search(r"\\d|[$₹€£:#]", value)
+            and not re.search(r"[=~<>|]", value)
+            and not any(term in folded for term in promotional_terms)
+            and not is_excluded(folded)
+            and not re.search(r"\\b(?:qty|quantity|unit price|amount|subtotal|grand total)\\b", value, re.IGNORECASE)
         )
 
     money = r"(?:[$₹€£]\s*)?\d[\d,]*(?:\.\d{1,2})?"
@@ -133,7 +148,7 @@ def _line_items(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]
                 unit_price = ""
 
         item_text = re.sub(r"\s+", " ", description).strip(" .|:-_*")
-        if not item_text or not re.search(r"[A-Za-z]{2}", item_text):
+        if not item_text or not is_plausible_description(item_text):
             continue
         clean = lambda value: re.sub(r"\s+", "", value).strip("$₹€£")
         row = [item_text, quantity, clean(unit_price), clean(amount)]
