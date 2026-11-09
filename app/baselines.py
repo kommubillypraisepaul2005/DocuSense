@@ -82,6 +82,11 @@ def _line_items(lines: list[str]) -> tuple[list[str], list[list[str]], list[str]
         words = re.findall(r"[A-Za-z]+", value)
         if not words or max(map(len, words)) < 3:
             return False
+        # A long OCR fragment made mostly of short, weak tokens is usually
+        # table/crop contamination, even if one token happens to be 3+ chars.
+        meaningful = sum(len(word) >= 3 for word in words)
+        if meaningful / len(words) < 0.5:
+            return False
         if re.search(r"[=~<>|]", value):
             return False
         if re.search(r"\bitem\s+name\b", value, re.IGNORECASE):
