@@ -1,0 +1,21 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local runtime state
+runs/
+*.sqlite
+*.sqlite3
+*.db
+
+# User-generated extraction data and backups
+data/results/
+data/backups/
