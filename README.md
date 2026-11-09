@@ -1,178 +1,202 @@
-# Open Document Intelligence
+# DocuSense — Local Document Intelligence
 
-A local-first document understanding service. It extracts searchable text and tables, can use locally hosted text and vision models, returns structured results with evidence, validates supported checks, and routes uncertain outputs to human review. Ollama is optional; the rules-only path works without a model, and there are no paid API dependencies.
+DocuSense is a local-first document extraction prototype. It turns PDFs, images, spreadsheets, and office documents into structured JSON, shows the evidence and validation warnings behind extracted values, and lets a person correct the result before saving it.
 
-## Supported input formats
+The project is designed around **document-by-document extraction and human review**. It does not assume every invoice, marksheet, certificate, or business document has the same layout.
 
-- PDF, including scanned pages (PyMuPDF plus optional Tesseract OCR)
-- PNG, JPEG, TIFF, BMP, WebP (OCR and local vision)
-- DOCX, XLSX/XLSM, PPTX and OpenDocument ODT/ODS/ODP
-- Legacy DOC/XLS/PPT when LibreOffice is installed and available on PATH (converted locally to PDF)
-- CSV, RTF, TXT, Markdown, JSON, XML, HTML, and LOG
+## What it does
 
-Password-protected files are unsupported. Excel parsing is capped at 5,000 rows and 50 columns per sheet; PDF parsing is capped at 200 pages; images are capped at 40 million pixels; uploads are capped at 30 MB by default. Up to six PDF pages or embedded office images are sent to the vision model per extraction. For longer PDFs, remaining pages are OCR-structured in bounded local text-model batches, with batch status and duration included in the result. All PDF pages are text-extracted. LibreOffice conversion is optional and is required only for legacy binary Office files.
+- **Document ingestion:** PDF, common image formats, DOCX, XLSX/XLSM, PPTX, OpenDocument files, CSV, TXT, Markdown, JSON, XML, HTML, RTF, and LOG. Legacy DOC/XLS/PPT conversion requires LibreOffice.
+- **Text and OCR extraction:** native document parsers plus optional local Tesseract OCR for scans and images.
+- **Local GenAI extraction:** optional Ollama text and vision models. The default model tags are `qwen2.5:3b` and `qwen2.5vl:3b`.
+- **Schema-based output:** general extraction, invoice/receipt and marksheet profiles, or a user-provided JSON schema.
+- **Evidence and validation:** evidence quotes/page references where available, OCR disagreement reporting, missing-field and review warnings, and deterministic invoice arithmetic checks.
+- **Human-in-the-loop review:** edit scalar fields and table rows, add/remove rows, save a review note, and download the corrected JSON.
+- **Local persistence:** job/review state in SQLite and extraction result files under `data/results/`.
 
-## Run locally on Windows
+## Architecture
 
-1. Install Python 3.11 or newer. Install Tesseract OCR if scanned-page and image OCR is needed. Install LibreOffice if you need `.doc`, `.xls`, or `.ppt` support.
-2. In PowerShell, create and activate a virtual environment, then install dependencies:
-
-   ```powershell
-   Remove-Item Env:PYTHONHOME -ErrorAction SilentlyContinue
-   Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
-   py -3.11 -m venv .venv
-   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-   ```
-
-3. Copy `.env.example` to `.env`. For local development, `APP_ENV=development` and an empty `APP_API_KEY` are allowed. Set a long random `APP_API_KEY` and generate a Fernet key for encrypted results:
-
-   ```powershell
-   .\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(32))"
-   .\.venv\Scripts\python.exe -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-   ```
-
-   Put those values in `.env` and preserve the Fernet key because encrypted data cannot be read without it.
-4. Install Ollama and pull the default free-to-run local models:
-
-   ```powershell
-   ollama pull qwen2.5:3b
-   ollama pull qwen2.5vl:3b
-   ```
-
-   Qwen2.5-VL supports image input; its Ollama library entry lists the 3B variant at about 3.2 GB. Actual RAM/VRAM needs vary by context and runtime. [Ollama Qwen2.5-VL model library](https://ollama.com/library/qwen2.5vl). Review the model license that applies to the exact checkpoint and intended use; the Qwen2.5-VL 3B model card currently lists Apache-2.0. [Qwen2.5-VL-3B model card](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct)
-
-5. Start the local website from PowerShell with `powershell -ExecutionPolicy Bypass -File .\start_document_lab.ps1`. The launcher clears conflicting `PYTHONHOME`/`PYTHONPATH` settings, starts the local service in the background if needed, checks `/health`, and opens `http://127.0.0.1:8000`. Stop a service started by the launcher with `powershell -ExecutionPolicy Bypass -File .\stop_document_lab.ps1`.
-
-If you use non-English documents, install the corresponding Tesseract language data and set `OCR_LANGUAGE` (for example, `eng+hin`). For Ollama with a different host or model tag, change `OLLAMA_BASE_URL`, `OLLAMA_TEXT_MODEL`, or `OLLAMA_VISION_MODEL` in `.env`.
-
-The website's service indicator reports whether Ollama is reachable and whether the configured text and vision models are installed. The local rules/OCR mode remains available when Ollama is offline. Create a database and results backup with `.\.venv\Scripts\python.exe .\scripts\backup_document_lab.py`; it writes a ZIP under `data/backups/`. The backup contains the SQLite database and saved result JSON, not original uploads. If `DATA_ENCRYPTION_KEY` is configured, preserve that key separately. To restore, stop the app, extract the ZIP into the project root (preserving its `data/` paths), then start the app again.
-
-The browser app supports general extraction, invoice/receipt and marksheet field presets, custom JSON schemas, drag-and-drop uploads, an editable review form for scalar fields and table rows, and recent saved results. It renders all extracted tables, including receipt items and marksheet subjects, and shows an empty table when expected rows are missing. Use **Review and correct** to edit or fill missing requested fields, compare scalar and row OCR evidence beside editable values, add or remove table rows, and save a review note. Each completed extraction and saved correction is written as readable JSON under `data/results/`; use the Download JSON or View actions in the page to retrieve it. Original uploaded documents remain in memory only.
-
-`OCR_CROSSCHECK=true` runs multiple Tesseract layout passes on table-like scans and re-reads detected quantity-led receipt rows in narrow crops. OCR/rules fill blank model values and recover missed receipt items and coded marksheet subject rows. Tables parsed directly from PDF, Office, spreadsheet, and CSV inputs supplement the model output. Non-empty disagreements are reported for human review rather than silently overwritten. Receipt currency symbols are preserved as printed; ISO codes are assigned only when explicit or unambiguous, while `$`, `¥`, and other ambiguous symbols require review. The browser result includes the OCR text read from the source for inspection.
-
-## Docker
-
-Copy `.env.example` to `.env`, set `APP_ENV=production`, set a strong `APP_API_KEY`, and set `DATA_ENCRYPTION_KEY`. Production startup refuses to run without both keys. Then run:
-
-```powershell
-docker compose up --build -d
-docker compose exec ollama ollama pull qwen2.5:3b
-docker compose exec ollama ollama pull qwen2.5vl:3b
+```mermaid
+flowchart TD
+    A[Browser UI] --> B[FastAPI service]
+    B --> C[File type router and native parsers]
+    C --> D[PDF / Office / spreadsheet / text extraction]
+    C --> E[Tesseract OCR for scans and images]
+    D --> F[Extracted text, tables and page regions]
+    E --> F
+    F --> G{Extraction mode}
+    G --> H[Rules and parser baselines]
+    G --> I[Ollama text model]
+    G --> J[Ollama vision model]
+    H --> K[Merge, evidence grounding and validation]
+    I --> K
+    J --> K
+    K --> L[Structured JSON and review status]
+    L --> M[Browser result and correction editor]
+    M --> N[Save corrected result]
+    B --> O[(SQLite job and review state)]
+    N --> P[data/results JSON files]
 ```
 
-The API is bound to `127.0.0.1:8000`; Ollama is only exposed to the Compose network. The Docker image includes English Tesseract. Hardware acceleration for Ollama depends on Docker and host GPU configuration.
+The browser communicates with FastAPI on localhost. Ollama is a separate local model runtime. OCR and native parsers prepare the source content; rules and/or a local model produce structured fields and tables; validation checks evidence and supported consistency rules; the UI presents the result for human review.
+
+## Requirements
+
+- Windows 10/11 and Python 3.11+
+- Git
+- Tesseract OCR for scanned PDFs and image OCR
+- Ollama for text/vision model modes (optional for rules-only mode)
+- LibreOffice only if you need legacy `.doc`, `.xls`, or `.ppt` conversion
+
+## Windows setup
+
+Open PowerShell in the cloned repository.
+
+### 1. Create the Python environment
+
+```powershell
+Remove-Item Env:PYTHONHOME -ErrorAction SilentlyContinue
+Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+### 2. Configure environment variables
+
+```powershell
+Copy-Item .env.example .env
+```
+
+The defaults are suitable for local development. Keep `APP_ENV=development` and leave `APP_API_KEY` blank for a private localhost demo. If you set an API key, enter the same value in the app's API key field. Do not commit `.env` or real keys.
+
+To enable encryption for supported SQLite-stored result/review data, generate a Fernet key:
+
+```powershell
+.\.venv\Scripts\python.exe -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Put the generated value in `DATA_ENCRYPTION_KEY` in your local `.env` and keep it safe. Do not lose the key. Result JSON files in `data/results/` are local files; protect that folder separately.
+
+### 3. Install and check Tesseract
+
+Install Tesseract OCR for Windows and ensure `tesseract.exe` is on PATH. Verify:
+
+```powershell
+tesseract --version
+tesseract --list-langs
+```
+
+The default OCR language is English (`eng`). Install additional Tesseract language data and set `OCR_LANGUAGE` if you need another language.
+
+### 4. Install and pull local models (optional)
+
+Install Ollama, then run:
+
+```powershell
+ollama pull qwen2.5:3b
+ollama pull qwen2.5vl:3b
+ollama list
+```
+
+The text and vision modes require Ollama and the corresponding model. Rules/OCR mode does not require Ollama.
+
+### 5. Start DocuSense
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start_document_lab.ps1
+```
+
+The launcher starts Uvicorn on `127.0.0.1:8000`, checks `/health`, and opens the browser. Visit [http://127.0.0.1:8000](http://127.0.0.1:8000).
+
+To stop the service when it was started by the launcher:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\stop_document_lab.ps1
+```
+
+## Quick demo
+
+Use **synthetic documents only** for a public demonstration. Do not use personal marksheets, certificates, IDs, resumes, payment records, or real customer documents.
+
+1. Start Ollama if you plan to use a model mode, and start DocuSense.
+2. Create a fictional one-page invoice in Word or a spreadsheet and export it as PDF. Use invented company names, addresses, invoice IDs, and amounts.
+3. In the browser, upload the PDF. Choose **Invoice or receipt** for the field profile.
+4. Run **OCR + local structuring** first, or choose **Automatic** to use Ollama when available.
+5. Inspect the extracted fields, line-item table, OCR text, evidence, and any review warnings.
+6. Select **Review and correct**. Correct a value or table row, add/remove a row if needed, and optionally enter a review note.
+7. Select **Save corrections**, then **Download JSON**. Confirm that the downloaded JSON contains the corrected values.
+8. Repeat with a fictional certificate or marksheet only if you want to demonstrate a second document layout.
+
+A ready-to-follow synthetic example and presentation checklist are in [docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md).
 
 ## Extraction modes
 
-- `rules`: OCR/parser text plus transparent invoice regular-expression baseline
-- `text`: local text LLM on parser/OCR output
-- `vision_zero_shot`: VLM receives document images without OCR text
-- `vision`: prompted VLM plus OCR/parser text
-- `auto`: combines text and visual input when visual pages exist; uses text model for spreadsheet/text-only sources
+| Mode | Behaviour |
+| --- | --- |
+| `rules` | Native parser/OCR text plus local rules and parser tables; no Ollama required |
+| `text` | Local Ollama text model using extracted text |
+| `vision` | Local vision model with OCR/parser text context |
+| `vision_zero_shot` | Local vision model without OCR text context |
+| `auto` | Uses local Ollama when available and falls back to local OCR/rules when unavailable |
 
-An optional `schema_json` form field can specify fields, for example:
-
-```json
-{"document_type":"invoice","fields":{"invoice_number":"string","date":"date","vendor":"string","subtotal":"number","tax":"number","total":"number"}}
-```
-
-For table extraction, include requested columns, for example: `{"document_type":"marksheet","fields":{"student_name":"string","roll_number":"string"},"tables":[{"name":"subjects","columns":["subject_code","subject","theory_marks","practical_marks","total_marks","grade"]}]}`.
-
-The model is instructed to return values with short evidence quotes and page numbers. Grounding matches those quotes to OCR/native text regions and returns normalized bounding boxes where available. Office tables retain row/column matrices and spreadsheet sheet names. Arithmetic checks are performed in Python, not delegated to the model.
-
-## API
-
-Every endpoint other than `/`, `/health`, and OpenAPI docs requires `X-API-Key` when `APP_API_KEY` is configured.
-
-- `POST /documents`: queue in-process async extraction; multipart `file`, optional `schema_json`, query `mode`
-- `POST /extract`: synchronous multipart extraction
-- `GET /jobs/{id}` and `GET /results/{id}`: job status and result
-- `GET /saved-results` and `GET /saved-results/{filename}`: list and download JSON result files in `data/results/`
-- `POST /validate`: revalidate extraction JSON with source segments
-- `GET /reviews` and `POST /reviews/{id}`: review queue and human decision/correction record
-- `DELETE /jobs/{id}`: remove a completed or failed result
-- `GET /metrics`: aggregate job and review counts
-- `GET /health`: liveness
-
-Job state and results live in SQLite. Uploaded originals stay in memory and are not persisted. Result and review JSON are encrypted at rest only when `DATA_ENCRYPTION_KEY` is set. The audit log stores event names and job IDs, not document text. Configure TLS and network access controls if exposing the service beyond localhost.
-
-The async queue is process-local: jobs interrupted by a server restart are marked failed and must be resubmitted. This keeps source documents out of persistent storage; multi-worker deployment would need a durable encrypted object store and queue.
-
-## Per-upload review workflow
-
-Documents vary in layout and in the fields they contain, so the application does not assume that a marksheet or another document class has one universal structure. Process each file with the closest profile, or provide a custom schema when you know the fields you need. Inspect the OCR text and extracted tables, correct that upload in the review editor, and save its result under `data/results/`.
-
-Review corrections are saved with that result. They do not automatically train the model or become a reusable template. Treat every new upload as its own document unless you explicitly create and approve a reusable schema for a particular workflow. The existing evaluation scripts and labeled marksheet files are historical development artifacts; do not add new uploads to benchmark manifests. No accuracy claim is made for all documents or all layouts.
-
-The optional `scripts/evaluate.py` and `scripts/compare_models.py` utilities remain available for controlled engineering work, but benchmark creation is not part of the application's document-by-document workflow.
-
-## LoRA/QLoRA fine-tuning
-
-Training is optional and requires a CUDA GPU. Install a CUDA-compatible PyTorch build first, then `pip install -r training-requirements.txt`. `scripts/finetune_vlm.py` trains a Qwen2.5-VL LoRA adapter (or 4-bit NF4 QLoRA) from image/answer JSONL records and a separate validation set. It writes trainable parameter count, training time, peak GPU memory, learning rate, and resolution metadata beside the adapter. Fine-tuning is deferred; corrections saved from the website are not training data by default.
-
-Example JSONL line:
+The UI also supports custom schemas. For example:
 
 ```json
-{"images":["images/invoice-001.png"],"prompt":"Extract invoice fields as JSON and cite exact evidence.","answer":"{\"document_type\":\"invoice\",\"fields\":{...}}"}
+{
+  "document_type": "invoice",
+  "fields": {
+    "invoice_number": "string",
+    "date": "date",
+    "vendor": "string",
+    "subtotal": "number",
+    "tax": "number",
+    "total": "number"
+  }
+}
 ```
 
-Run with `python scripts/finetune_vlm.py --train-jsonl data/train.jsonl --validation-jsonl data/validation.jsonl --qlora`. Fine-tuning is optional and is not part of the current per-upload workflow. The service selects the served Ollama model via environment variables; converting a trained HF adapter to a serving format is a separate step dependent on the target runtime.
+## Tests
 
-## Current limitations
-
-Confidence scores are evidence-match heuristics, not calibrated probabilities. Model extraction quality, OCR quality, and table structure vary with scans, language data, model size, and hardware. DOCX/PPTX images are passed as visual inputs but their original page/slide layout may not be retained in region coordinates. Validation is deterministic for supported invoice arithmetic, not a full accounting rules engine. Review decisions are recorded, but they do not automatically retrain a model.
-
-## Implementation status and verification
-
-### Completion against the supplied 9-level project plan
-
-The project is being built as a document-by-document tool. Different files can have different fields and table layouts, including within marksheets. There is no universal document benchmark or accuracy gate in the current workflow. Completion refers to software capabilities; every extracted result still needs review when its warnings or evidence indicate uncertainty.
-
-| Level | Status | Capability and evidence |
-| --- | --- | --- |
-| 0 — Scope and per-upload workflow | Complete | Common file formats, profiles, custom schemas, individual result review, and local saving are available. |
-| 1 — OCR and rules extraction | Complete per user testing | Native parsers, Tesseract alternate layouts, targeted OCR crops, rules, and source text preservation are implemented. |
-| 2 — Layout-aware extraction | Complete per user testing | Page regions, native tables, spreadsheet matrices, scanned row recovery, layout checks, and review routing are implemented. |
-| 3 — Free text and vision models | Complete for the local pilot | Ollama is installed with the configured Qwen2.5 3B text and Qwen2.5-VL 3B vision models. The UI now shows Ollama/model readiness. Speed and extraction quality depend on the computer and source; cloud services are not configured. |
-| 4 — Validation and human correction | Complete per user testing | Evidence, warnings, editable fields and rows, missing-field entry, and saved corrections are available. |
-| 5 — Fine-tuning | Complete for the agreed project scope | Optional training utilities exist; fine-tuning is not required for the current pretrained-model workflow. |
-| 6 — Robustness across documents | Complete per user testing | The supplied formats and layouts are handled by the per-document workflow, with review for uncertain results. |
-| 7 — Local service | Complete for the local pilot | The Windows launcher, FastAPI UI/API, SQLite job state, result persistence, review editor, and Ollama model readiness indicator work locally. Public or multi-user deployment remains out of scope. |
-| 8 — Operational visibility | Complete for the local project scope | Health/model readiness, job and review status, metrics, result history, backup, and restore guidance are available. |
-
-**All nine levels are marked complete based on the user's confirmation that each was tested.** Current work is quantitative testing across the supplied sample files. The evaluation is stored separately; existing historical benchmark files remain unchanged.
-
-## Sample model evaluation
-
-All 28 files in `data/Sample_docs/` completed the local OCR + `qwen2.5:3b` text-mode pipeline. The model produced structured output for 23/28 documents (82.1%); five outputs were malformed/empty or used fallback. Against partial reference checklists, key-fact recall was 83/160 (51.9%). On 12 samples with reference rows, table precision was 21.3%, recall 30.8%, and F1 25.2%. All 28 results required human review. Mean end-to-end time was 96.5 seconds (median 64.0 seconds), with CPU-only inference.
-
-A separate two-image `qwen2.5vl:3b` pilot succeeded on one receipt and fell back to text on one marksheet. Its model-only key-fact recall was 5/18 (27.8%); row precision/recall/F1 were 37.5%/33.3%/35.3%. This sample is too small to compare models reliably. The vision model was not run on all 28 files.
-
-Shareable HTML charts and privacy-reduced CSV/JSON scores are in `data/evaluations/2026-10-31/`. The accuracy figures use partial references, not exhaustive labels; do not present key-fact recall as all-field accuracy or as a guarantee on new documents. Full extraction JSON and a private source index stay local and can include personal information. No documents were added to the historical benchmark manifests.
-
-The current workspace implements the local prototype across these project stages. Marksheet extraction additionally normalizes model output, retries text extraction when local vision inference fails, checks table rows against OCR regions, compares OCR layouts when inventorying source rows, honors embedded image orientation metadata, and routes disagreements or missing rows to review:
-
-1. **Document ingestion:** common text, image, PDF, Office, OpenDocument, CSV, and markup formats have format-specific extraction paths. Legacy binary Office conversion needs LibreOffice; scanned-image OCR needs Tesseract.
-2. **OCR and layout signals:** native PDF word regions and normalized boxes are extracted; table and spreadsheet structure is preserved. Tesseract OCR is optional. Document parsers do not yet provide full page-layout segmentation for DOCX/PPTX, diagrams, signatures, handwriting, or rotated scans.
-3. **Baseline ladder:** rule baseline, local text model, zero-shot VLM, prompted VLM, and automatic routing are wired. The free local Ollama text and vision models are installed; the website health status reports when configured models are unavailable.
-4. **Structured extraction and checks:** schema prompting, quote grounding, evidence metadata, invoice arithmetic, confidence heuristics, and human review routing are implemented.
-5. **Serving:** FastAPI direct and job endpoints, SQLite status/results, review records, API-key checks, optional result encryption, audit events, and metrics are implemented. The queue runs in-process and is intended for a single local service instance.
-6. **Evaluation and adaptation:** optional historical evaluation and LoRA/QLoRA utilities exist. They are not part of the per-upload workflow; no new user files should be added to their historical manifests. Training has not been run.
-7. **Deployment and operations:** Docker files and setup guidance are included. The local website is used for individual uploads; container deployment and production operations remain unfinished.
-
-Run the local parser and validation regression checks with:
+Run the automated regression suite from PowerShell:
 
 ```powershell
 Remove-Item Env:PYTHONHOME -ErrorAction SilentlyContinue
 Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
+git diff --check
 ```
 
-The tests create sample PDF, DOCX, XLSX, and PPTX inputs in memory and check text formats, tables, evidence grounding, and arithmetic validation. They do not substitute for a labeled benchmark or a live VLM/OCR integration run.
+The latest user-reported Codespaces run completed **38 tests successfully**. These tests cover application/parser/validation behaviour using generated test inputs; they are not a real-world document accuracy benchmark. Run the commands again on your current checkout before presenting a fresh test result.
 
-### Sample documents
+## Important limitations
 
-Files in `data/Sample_docs/` are individual examples for manual use through the website. Review and save each upload on its own. Do not assign benchmark splits or copy uploads into the historical labeled manifests.
+- OCR and model output can be wrong, omit table rows, or confuse columns. Always compare important values with the source document.
+- Evidence matching and confidence indicators are heuristics, not calibrated probabilities.
+- A result marked as passed does not guarantee that every extracted value is correct.
+- Invoice arithmetic checks cover supported deterministic checks; they are not a complete accounting rules engine.
+- Results vary with scan quality, document layout, language data, model choice, and available hardware.
+- The asynchronous job queue is process-local. This is a local prototype, not a production multi-user deployment.
+- Fine-tuning utilities are optional; a fine-tuning run is not part of the demonstrated workflow.
+- No universal accuracy claim is made across document types or layouts.
 
+## Privacy and safe use
 
+DocuSense is configured for local use and binds its Windows launcher to localhost. Uploaded originals are processed in memory rather than persisted as original files by the application. Extracted JSON results and application data are stored locally. Keep personal source documents and result files out of the public repository, and configure appropriate access controls and encryption before exposing the service beyond localhost.
+
+## Repository layout
+
+```text
+app/                  FastAPI application, parsers, models and validation
+app/static/           Browser interface
+scripts/              Optional evaluation, backup and model utilities
+tests/                Automated regression tests
+data/results/         Local extraction result JSON (do not commit)
+start_document_lab.ps1
+stop_document_lab.ps1
+requirements.txt
+```
+
+## License and model notes
+
+Check the repository's license and the license/usage terms for each model checkpoint before redistributing or deploying it. Ollama models are downloaded separately and are not bundled with DocuSense.
