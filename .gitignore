@@ -19,3 +19,7 @@ runs/
 # User-generated extraction data and backups
 data/results/
 data/backups/
+
+# Private sample documents and local extraction outputs
+data/Sample_docs/
+data/benchmark/drafts/*.json
